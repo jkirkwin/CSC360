@@ -42,16 +42,27 @@
  *
  */
 
+/* shift_left and one of the inserts are giving seg faults, 
+ * which is most likely due to some other function(s) being
+ * implemented incorrectly and corrupting the data structure.
+ *
+ * The next thing to do is test each of the implemented functions
+ * in the order that they are called from main.
+ */
 #include<stdbool.h> // bool
 #include<stdio.h> // printf()
 #include<stdlib.h> // malloc()
+#include<assert.h>
 
+#define DEBUG 1
 
 struct node  {
     int data;
     struct node* next;
     struct node* prev;
 };
+
+void print(struct node* ref);
 
 /*!
  * \brief create Allocate memory and create new single node
@@ -281,13 +292,69 @@ struct node* rfind(struct node* ref, int elem) {
  * \param ref2 A node from list
  */
 void swap(struct node* ref1, struct node* ref2) {
+    // TODO test
 
-    /*
-     * Nodes could be far from each other
-     * Nodes could be next to each other ref2 after ref1
-     * Nodes could be next to each other ref1 after ref2
-     */
-    /* Your code here */
+    #ifdef DEBUG
+        printf("swapping %d, %d\n", *ref1, *ref2);
+    #endif
+
+    assert(ref1 && ref2);
+    struct node *p1 = ref1->prev;
+    struct node *n1 = ref1->next;
+    struct node *p2 = ref2->prev;
+    struct node *n2 = ref2->next;
+
+    if(ref1->next == ref2) {
+        // nodes are adjacent with ref1 before ref2
+        if(p1) {
+            p1->next = ref2;
+        }
+        ref1->prev = ref2;
+        ref1->next = n2;
+        if(n2) {
+            n2->prev = ref1;
+        }
+        ref2->next = ref1;
+        ref2->prev = p1;
+    } else if(ref1->prev == ref2) {
+        // nodes are adjacent with ref1 before ref2
+        if(p2) {
+            p2->next = ref1;
+        }
+        ref2->prev = ref1;
+        ref2->next = n1;
+        if(n1) {
+            n1->prev = ref2;
+        }
+        ref1->next = ref2;
+        ref1->prev = p2;
+    } else {
+        // not side by side
+
+        // Move ref2 node
+        if(p1) {
+            p1->next = ref2;        
+        }
+        if(n1) {
+            n1->prev = ref2;
+        }
+        ref2->prev = p1;
+        ref2->next = n1;
+
+        // Move ref1 node
+        if(p2) {
+            p2->next = ref1;
+        }
+        if(n2) {
+            n2->prev = ref1;
+        }
+        ref1->prev = p2;
+        ref1->next = n2;
+    }
+
+    #ifdef DEBUG
+        printf("Swap complete.\n");
+    #endif
 }
 
 
@@ -322,9 +389,37 @@ void reverse(struct node* ref) {
  * \return Pointer to the head of concatenated list
  */
 struct node* concat(struct node* ref1, struct node* ref2) {
-    /* Your code here */
+    // TODO test
 
-    return begin(ref1);
+    #ifdef DEBUG
+        printf("Concatenating lists\n");
+        printf("\t");
+        print(ref1);
+        printf("\t");
+        print(ref2);
+    #endif
+
+    // find end of list 1
+    // find start of list 2
+    if(ref1 == NULL) {
+        return begin(ref2);
+    } else if(ref2 == NULL) {
+        return begin(ref1);
+    }
+    struct node *head = begin(ref1);
+    // Both are guaranteed to be non-empty
+    ref1 = end(ref1);
+    ref2 = begin(ref2);
+    ref1->next = ref2;
+    ref2->prev = ref1;
+
+    #ifdef DEBUG
+        printf("Lists concatenated\n");
+        printf("\t");
+        print(head);
+    #endif
+
+    return head;
 }
 
 
@@ -335,11 +430,45 @@ struct node* concat(struct node* ref1, struct node* ref2) {
  * \return distance is positive if ref1 appears before ref2 and negative if ref2 appears before ref1
  */
 int distance(struct node* ref1, struct node* ref2) {
+    #ifdef DEBUG
+        printf("Finding distance between %d, %d\n", value(ref1), value(ref2));
+    #endif
 
-    int dist = 0;
-    /* Your code here */
+    assert(ref1 && ref2);
+    if(ref1 == ref2) {
+        return 0;
+    }
+    int dist = 1;
+    
+    // search backwards first
+    struct node *p = ref1;
+    while(p) {
+        if(p == ref2) {
+            #ifdef DEBUG
+                printf("distance: %d\n", dist);
+            #endif
+            return dist;
+        }
+        p = prev(p);
+        dist--;
+    }
 
-    return dist;
+    p = ref1;
+    dist = 0;
+    while(p) {
+        if(p == ref2) {
+            #ifdef DEBUG
+                printf("distance: %d\n", dist);
+            #endif
+            return dist;
+        }
+        p = next(p);
+        dist++;
+    }
+    #ifdef DEBUG
+        printf("Nodes are not in the same list\n");
+    #endif
+    return size(ref1) + 1; /* nodes are not in the same list */
 }
 
 /*!
@@ -348,10 +477,25 @@ int distance(struct node* ref1, struct node* ref2) {
  * \return The head of the list
  */
 struct node* unique(struct node* ref) {
+    // TODO Test
+    #ifdef DEBUG
+        printf("Removing consecutive duplicates\n");
+    #endif
     struct node* head = begin(ref);
-    
-    /* Your code here */
-    
+    if(head == NULL) {
+        return NULL; /* No list */
+    }
+    struct node* p = head;
+    while(next(p)) {
+        if(value(p) == value(p->next)) {
+            erase(p->next);
+        } else {
+            p = next(p);
+        }
+    }
+    #ifdef DEBUG
+        printf("Removed consecutive duplicates\n");
+    #endif
     return head;
 }
 
@@ -366,9 +510,39 @@ struct node* unique(struct node* ref) {
  * \return The head (begin) of the list
  */
 struct node* rotate_left(struct node* ref, int n) {
+    // TODO Test
     struct node* head = begin(ref);
-    /* Your code here */
-    return head;
+    n = n % size(head); // account for large or negative shifts
+    #ifdef DEBUG
+        printf("Rotating list of length %d left by %d\n", size(head), n);
+    #endif
+    if(n == 0) {
+        #ifdef DEBUG
+            printf("No rotation required\n");
+        #endif
+        return head;        
+    }
+
+    // Chop off the first n items 
+    struct node *p = head;
+    int i;
+    for(i = 0; i < n-1; i++) {
+        p = next(p);
+    }
+    struct node * new_head = p->next;
+    p->next = NULL;
+    new_head->prev = NULL;
+
+    // Concatenate the two lists
+    struct node *end_node = end(new_head);
+    end_node->next = p;
+    p->prev = end_node;
+
+    #ifdef DEBUG
+        printf("Rotation complete \n");
+    #endif
+
+    return new_head;
 }
 
 /*!
@@ -378,7 +552,28 @@ struct node* rotate_left(struct node* ref, int n) {
  * \return
  */
 struct node* shift_left(struct node* ref, int n) {
-    /* Your code here */
+    // TODO test
+    #ifdef DEBUG
+        printf("shifting left by %d\n", n);
+    #endif
+    assert (n >= 0);
+    struct node *head = begin(ref);
+    int list_size = size(head); 
+    if(n >= list_size) {
+        #ifdef DEBUG
+            printf("n > size of list. Clearing.\n");
+        #endif
+        clear(head);
+        return NULL;
+    }
+    int i;
+    for(i = 0; i < n; i++) {
+        head = pop_front(ref);
+    }
+    #ifdef DEBUG
+        printf("Removed first %d elements.\n", n);
+    #endif
+
     return begin(ref);
 }
 
@@ -389,7 +584,28 @@ struct node* shift_left(struct node* ref, int n) {
  * \param max Maximum returned value
  */
 void minmax(struct node* ref, int* min, int* max) {
-    /* Your code here */
+    // TODO Test
+
+    assert(ref != NULL);
+    #ifdef DEBUG
+        printf("Finding min and max in list\n");
+        printf("\t");
+        print(ref);
+    #endif
+    struct node * p = begin(ref);
+    *min = p->data;
+    *max = p->data;
+    while(p) {
+        if(value(p) < *min) {
+            *min = value(p);
+        } else if(*max < value(p)) {
+            *max = value(p);
+        }
+        p = p->next;
+    }
+    #ifdef DEBUG
+        printf("max: %d\t min: %d\n", *max, *min);
+    #endif
 }
 
 /*!
@@ -399,12 +615,56 @@ void minmax(struct node* ref, int* min, int* max) {
  * \return
  */
 bool includes(struct node* ref1, struct node* ref2) {
-    /* Your code here */
+    // TODO Test
 
+    #ifdef DEBUG
+        printf("Testing for sub-list\n");
+        printf("list:   \t");
+        print(ref1);
+        printf("sublist:\t");
+        print(ref2);
+    #endif
+
+    if(ref1 == NULL || ref2 == NULL) {
+        #ifdef DEBUG
+            printf("Empty list(s)\n");
+        #endif
+        return false;
+    }
+    struct node *anchor = begin(ref1);
+    struct node *pattern_start = begin(ref2);
+
+    int i;
+    int len1 = size(ref1);
+    int len2 = size(ref2);
+    int max = len1 - len2;
+
+    int matched;
+    for(i = 0; i < max; i++) {
+        matched = 0;
+        struct node *p1;
+        struct node *p2 = anchor;
+        for(p2 = pattern_start; p2; p1 = next(p1), p2 = next(p2)) {
+            if(value(p1) != value(p2)) {
+                break;
+            } else {
+                matched++;
+            }
+        }
+        if(matched == len2) {
+            #ifdef DEBUG
+                printf("Match\n");
+            #endif
+            return true;
+        }
+        anchor = next(anchor);
+    }
+
+    #ifdef DEBUG
+        printf("No match\n");
+    #endif
     return false;
 }
-
-
 
 /*!
  * \brief print Print all elements of list following a new line
@@ -482,7 +742,7 @@ int main() {
     printf("Concatenate two lists: ");
     list = concat(list, list2);
     print(list);
-
+  
     printf("Revese the new list: ");
     reverse(list);
     print(list);
@@ -498,7 +758,6 @@ int main() {
     unique(list);
     print(list);
 
-
     printf("Shift left 3 times: ");
     shift_left(list, 3);
     print(list);
@@ -507,8 +766,8 @@ int main() {
     printf("Rotate left 2 times: ");
     rotate_left(list, 2);
     print(list);
-
     list = begin(list);
+
     printf("Distance between 14 and 15: %d\n", distance(ffind(list, 14), ffind(list, 15)));
     printf("Distance between 15 and 14: %d\n", distance(ffind(list, 15), ffind(list, 14)));
     printf("Distance between 5 and 4: %d\n", distance(ffind(list, 5), ffind(list, 4)));
