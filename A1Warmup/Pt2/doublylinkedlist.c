@@ -54,7 +54,7 @@
 #include<stdlib.h> // malloc()
 #include<assert.h>
 
-#define DEBUG 1
+// #define DEBUG 1
 
 struct node  {
     int data;
@@ -295,7 +295,7 @@ void swap(struct node* ref1, struct node* ref2) {
     // TODO test
 
     #ifdef DEBUG
-        printf("swapping %d, %d\n", *ref1, *ref2);
+        printf("swapping %d, %d\n", value(ref1), value(ref2));
     #endif
 
     assert(ref1 && ref2);
@@ -434,10 +434,23 @@ int distance(struct node* ref1, struct node* ref2) {
         printf("Finding distance between %d, %d\n", value(ref1), value(ref2));
     #endif
 
-    assert(ref1 && ref2);
-    if(ref1 == ref2) {
+    if(ref1 == NULL) {
+        #ifdef DEBUG
+            printf("List 1 is empty\n");
+        #endif
+        return size(ref2) + 1;
+    } else if(ref2 == NULL) {
+        #ifdef DEBUG
+            printf("List 2 is empty\n");
+        #endif
+        return size(ref1) + 1;
+    }else if(ref1 == ref2) {
+        #ifdef DEBUG
+            printf("Same node. Dist is 0.\n");
+        #endif
         return 0;
     }
+
     int dist = 1;
     
     // search backwards first
@@ -672,7 +685,6 @@ bool includes(struct node* ref1, struct node* ref2) {
  */
 void print(struct node* ref) {
     struct node* n = begin(ref);
-
     do {
         printf("%d ",n->data);
     } while((n = next(n)) != NULL);
@@ -682,6 +694,96 @@ void print(struct node* ref) {
 
 int main() {
 
+}
+
+/*
+ * Reduced driller. Expected output below:
+
+
+
+ */
+int custom_drill() {
+    struct node* list = create(3);
+    push_back(list, 4);
+    push_front(list, 2);
+    for(int i = 5; i < 15; i+=3) {
+        list = push_back(list, i);
+    }
+    push_back(list, 14);
+    printf("Intial list: ");
+    insert(rfind(end(list), 11), 12);
+    swap(ffind(begin(list), 3), rfind(end(list), 12));
+    swap(ffind(begin(list), 4), ffind(begin(list), 5));
+    swap(ffind(begin(list), 4), ffind(begin(list), 5));
+    reverse(list);
+    push_back(list, 55);
+    reverse(list);
+
+    print(list);
+
+
+
+
+
+    printf("Create another list: ");
+    struct node* list2 = create(120);
+    for(int i = 60; i > 5; i/=2) {
+        list2 = push_front(list2, i);
+    }
+    print(list2);
+
+    printf("Concatenate two lists: ");
+    list = concat(list, list2);
+    print(list);
+  
+    printf("Revese the new list: ");
+    reverse(list);
+    print(list);
+
+    printf("Insert one 3 and two 7 after 15: ");
+    struct node* newNode = insert(ffind(begin(list), 15), 3);
+    newNode = insert(newNode, 7);
+    insert(newNode, 7);
+    print(list);
+
+    printf("Apply unique function to the list: ");
+    unique(list);
+    print(list);
+
+    printf("Shift left 3 times: ");
+    shift_left(list, 3);
+    print(list);
+
+    printf("Rotate left 2 times: ");
+    rotate_left(list, 2);
+    print(list);
+    list = begin(list);
+
+    printf("Distance between 14 and 15: %d\n", distance(ffind(list, 14), ffind(list, 15))); 
+    printf("Distance between 15 and 14: %d\n", distance(ffind(list, 15), ffind(list, 14)));
+    printf("Distance between 5 and 4: %d\n", distance(ffind(list, 5), ffind(list, 4)));
+    printf("Distance between 5 and 5: %d\n", distance(ffind(list, 5), ffind(list, 5)));
+    printf("Distance between begin and end: %d\n", distance(begin(list), end(list)));
+    printf("list size: %d\n", size(list));
+
+    printf("Create new list from array: ");
+    int arr[] = {11, 5, 4, 12, 2};
+    struct node* list3 = createFromArray(arr, sizeof arr/sizeof(int));
+    print(list3);
+
+    printf("New list is included in the other one: %s\n", includes(begin(list), begin(list3)) ? "Yes" : "No");
+
+    printf("Free up the memory!\n");
+    clear(list);
+    clear(list3);
+
+    return 0;
+}
+
+/* 
+ *Main method that was given
+ */
+int default_drill() {
     struct node* list = create(3);
 
     push_back(list, 4);
@@ -730,14 +832,12 @@ int main() {
     reverse(list);
     print(list);
 
-
     printf("Create another list: ");
     struct node* list2 = create(120);
     for(int i = 60; i > 5; i/=2) {
         list2 = push_front(list2, i);
     }
     print(list2);
-
 
     printf("Concatenate two lists: ");
     list = concat(list, list2);
@@ -746,7 +846,6 @@ int main() {
     printf("Revese the new list: ");
     reverse(list);
     print(list);
-
 
     printf("Insert one 3 and two 7 after 15: ");
     struct node* newNode = insert(ffind(begin(list), 15), 3);
@@ -762,13 +861,12 @@ int main() {
     shift_left(list, 3);
     print(list);
 
-
     printf("Rotate left 2 times: ");
     rotate_left(list, 2);
     print(list);
     list = begin(list);
 
-    printf("Distance between 14 and 15: %d\n", distance(ffind(list, 14), ffind(list, 15)));
+    printf("Distance between 14 and 15: %d\n", distance(ffind(list, 14), ffind(list, 15))); 
     printf("Distance between 15 and 14: %d\n", distance(ffind(list, 15), ffind(list, 14)));
     printf("Distance between 5 and 4: %d\n", distance(ffind(list, 5), ffind(list, 4)));
     printf("Distance between 5 and 5: %d\n", distance(ffind(list, 5), ffind(list, 5)));
