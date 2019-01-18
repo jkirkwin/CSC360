@@ -42,19 +42,16 @@
  *
  */
 
-/* shift_left and one of the inserts are giving seg faults, 
- * which is most likely due to some other function(s) being
- * implemented incorrectly and corrupting the data structure.
- *
- * The next thing to do is test each of the implemented functions
- * in the order that they are called from main.
+/*
+ * Completed Jan 17 by Jamie Kirkwin (jkirkwin)
  */
+
 #include<stdbool.h> // bool
 #include<stdio.h> // printf()
 #include<stdlib.h> // malloc()
 #include<assert.h>
 
-// #define DEBUG 1
+/* #define DEBUG 1 */
 
 struct node  {
     int data;
@@ -293,20 +290,18 @@ struct node* rfind(struct node* ref, int elem) {
  * \param ref2 A node from list
  */
 void swap(struct node* ref1, struct node* ref2) {
-    // TODO test
-
     #ifdef DEBUG
         printf("swapping %d, %d\n", value(ref1), value(ref2));
     #endif
 
-    assert(ref1 && ref2);
+    assert(ref1 && ref2); // Doesn't make sense to take null parameters here
     struct node *p1 = ref1->prev;
     struct node *n1 = ref1->next;
     struct node *p2 = ref2->prev;
     struct node *n2 = ref2->next;
 
     if(ref1->next == ref2) {
-        // nodes are adjacent with ref1 before ref2
+        /* nodes are adjacent with ref1 before ref2 */
         if(p1) {
             p1->next = ref2;
         }
@@ -318,7 +313,7 @@ void swap(struct node* ref1, struct node* ref2) {
         ref2->next = ref1;
         ref2->prev = p1;
     } else if(ref1->prev == ref2) {
-        // nodes are adjacent with ref1 before ref2
+        /* Nodes are adjacent with ref1 before ref2 */
         if(p2) {
             p2->next = ref1;
         }
@@ -330,9 +325,9 @@ void swap(struct node* ref1, struct node* ref2) {
         ref1->next = ref2;
         ref1->prev = p2;
     } else {
-        // not side by side
+        /* not side by side */
 
-        // Move ref2 node
+        /* Move ref2 node */
         if(p1) {
             p1->next = ref2;        
         }
@@ -342,7 +337,7 @@ void swap(struct node* ref1, struct node* ref2) {
         ref2->prev = p1;
         ref2->next = n1;
 
-        // Move ref1 node
+        /* Move ref1 node */
         if(p2) {
             p2->next = ref1;
         }
@@ -357,7 +352,6 @@ void swap(struct node* ref1, struct node* ref2) {
         printf("Swap complete.\n");
     #endif
 }
-
 
 /*!
  * \brief reverse Reverse the elements order of list
@@ -390,8 +384,6 @@ void reverse(struct node* ref) {
  * \return Pointer to the head of concatenated list
  */
 struct node* concat(struct node* ref1, struct node* ref2) {
-    // TODO test
-
     #ifdef DEBUG
         printf("Concatenating lists\n");
         printf("\t");
@@ -400,15 +392,14 @@ struct node* concat(struct node* ref1, struct node* ref2) {
         print(ref2);
     #endif
 
-    // find end of list 1
-    // find start of list 2
+    /* find end of list 1 and start of list 2 */
     if(ref1 == NULL) {
         return begin(ref2);
     } else if(ref2 == NULL) {
         return begin(ref1);
     }
     struct node *head = begin(ref1);
-    // Both are guaranteed to be non-empty
+    /* Both are guaranteed to be non-empty */
     ref1 = end(ref1);
     ref2 = begin(ref2);
     ref1->next = ref2;
@@ -454,7 +445,7 @@ int distance(struct node* ref1, struct node* ref2) {
 
     int dist = 0;
     
-    // search backwards first
+    /* search backwards first */
     struct node *p = ref1;
     while(p) {
         if(p == ref2) {
@@ -491,7 +482,6 @@ int distance(struct node* ref1, struct node* ref2) {
  * \return The head of the list
  */
 struct node* unique(struct node* ref) {
-    // TODO Test
     #ifdef DEBUG
         printf("Removing consecutive duplicates\n");
     #endif
@@ -524,7 +514,6 @@ struct node* unique(struct node* ref) {
  * \return The head (begin) of the list
  */
 struct node* rotate_left(struct node* ref, int n) {
-    // TODO Test
     struct node* head = begin(ref);
     n = n % size(head); // account for large or negative shifts
     #ifdef DEBUG
@@ -537,7 +526,7 @@ struct node* rotate_left(struct node* ref, int n) {
         return head;        
     }
 
-    // Chop off the first n items 
+    /* Chop off the first n items */
     struct node *p = head;
     int i;
     for(i = 0; i < n-1; i++) {
@@ -547,7 +536,7 @@ struct node* rotate_left(struct node* ref, int n) {
     p->next = NULL;
     new_head->prev = NULL;
 
-    // Concatenate the two lists
+    /* Concatenate the two lists */
     struct node *end_node = end(new_head);
     end_node->next = head;
     head->prev = end_node;
@@ -629,7 +618,6 @@ void minmax(struct node* ref, int* min, int* max) {
  * \return
  */
 bool includes(struct node* ref1, struct node* ref2) {
-    // TODO Test
     #ifdef DEBUG
         printf("Testing for sub-list\n");
         printf("list:   \t");
