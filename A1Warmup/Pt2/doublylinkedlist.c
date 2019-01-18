@@ -63,6 +63,7 @@ struct node  {
 };
 
 void print(struct node* ref);
+int default_drill();
 
 /*!
  * \brief create Allocate memory and create new single node
@@ -451,7 +452,7 @@ int distance(struct node* ref1, struct node* ref2) {
         return 0;
     }
 
-    int dist = 1;
+    int dist = 0;
     
     // search backwards first
     struct node *p = ref1;
@@ -548,8 +549,8 @@ struct node* rotate_left(struct node* ref, int n) {
 
     // Concatenate the two lists
     struct node *end_node = end(new_head);
-    end_node->next = p;
-    p->prev = end_node;
+    end_node->next = head;
+    head->prev = end_node;
 
     #ifdef DEBUG
         printf("Rotation complete \n");
@@ -629,7 +630,6 @@ void minmax(struct node* ref, int* min, int* max) {
  */
 bool includes(struct node* ref1, struct node* ref2) {
     // TODO Test
-
     #ifdef DEBUG
         printf("Testing for sub-list\n");
         printf("list:   \t");
@@ -655,9 +655,9 @@ bool includes(struct node* ref1, struct node* ref2) {
     int matched;
     for(i = 0; i < max; i++) {
         matched = 0;
-        struct node *p1;
-        struct node *p2 = anchor;
-        for(p2 = pattern_start; p2; p1 = next(p1), p2 = next(p2)) {
+        struct node *p1= anchor;
+        struct node *p2;
+        for(p2 = pattern_start; p2 && p1; p1 = next(p1), p2 = next(p2)) {
             if(value(p1) != value(p2)) {
                 break;
             } else {
@@ -691,93 +691,22 @@ void print(struct node* ref) {
     printf("\n");
 }
 
-
-int main() {
-
+int test_rotate_left() {
+    struct node* list = create(1);
+    int i;
+    for(i = 2; i < 8; i++) {
+        push_back(list, i);
+    }
+    printf("initial list: \t");
+    print(list);
+    rotate_left(list, 2);
+    printf("new list:    \t");
+    print(list);
 }
 
-/*
- * Reduced driller. Expected output below:
-
-
-
- */
-int custom_drill() {
-    struct node* list = create(3);
-    push_back(list, 4);
-    push_front(list, 2);
-    for(int i = 5; i < 15; i+=3) {
-        list = push_back(list, i);
-    }
-    push_back(list, 14);
-    printf("Intial list: ");
-    insert(rfind(end(list), 11), 12);
-    swap(ffind(begin(list), 3), rfind(end(list), 12));
-    swap(ffind(begin(list), 4), ffind(begin(list), 5));
-    swap(ffind(begin(list), 4), ffind(begin(list), 5));
-    reverse(list);
-    push_back(list, 55);
-    reverse(list);
-
-    print(list);
-
-
-
-
-
-    printf("Create another list: ");
-    struct node* list2 = create(120);
-    for(int i = 60; i > 5; i/=2) {
-        list2 = push_front(list2, i);
-    }
-    print(list2);
-
-    printf("Concatenate two lists: ");
-    list = concat(list, list2);
-    print(list);
-  
-    printf("Revese the new list: ");
-    reverse(list);
-    print(list);
-
-    printf("Insert one 3 and two 7 after 15: ");
-    struct node* newNode = insert(ffind(begin(list), 15), 3);
-    newNode = insert(newNode, 7);
-    insert(newNode, 7);
-    print(list);
-
-    printf("Apply unique function to the list: ");
-    unique(list);
-    print(list);
-
-    printf("Shift left 3 times: ");
-    shift_left(list, 3);
-    print(list);
-
-    printf("Rotate left 2 times: ");
-    rotate_left(list, 2);
-    print(list);
-    list = begin(list);
-
-    printf("Distance between 14 and 15: %d\n", distance(ffind(list, 14), ffind(list, 15))); 
-    printf("Distance between 15 and 14: %d\n", distance(ffind(list, 15), ffind(list, 14)));
-    printf("Distance between 5 and 4: %d\n", distance(ffind(list, 5), ffind(list, 4)));
-    printf("Distance between 5 and 5: %d\n", distance(ffind(list, 5), ffind(list, 5)));
-    printf("Distance between begin and end: %d\n", distance(begin(list), end(list)));
-    printf("list size: %d\n", size(list));
-
-    printf("Create new list from array: ");
-    int arr[] = {11, 5, 4, 12, 2};
-    struct node* list3 = createFromArray(arr, sizeof arr/sizeof(int));
-    print(list3);
-
-    printf("New list is included in the other one: %s\n", includes(begin(list), begin(list3)) ? "Yes" : "No");
-
-    printf("Free up the memory!\n");
-    clear(list);
-    clear(list3);
-
-    return 0;
+int main() {
+    // test_rotate_left();
+    default_drill();
 }
 
 /* 
