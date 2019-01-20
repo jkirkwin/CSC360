@@ -1,5 +1,5 @@
 all : kapish
-
+	
 kapish : kapish.o
 	gcc -o kapish kapish.o
 
