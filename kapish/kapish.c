@@ -13,7 +13,6 @@
 
 #include "kapish.h"
 
-// An array of pointers...
 char * builtin_cmds [] = { 
     "setenv\0",
     "unsetenv\0",
@@ -21,15 +20,14 @@ char * builtin_cmds [] = {
     "exit\0",
 };
 
-int main(int argc, char const *argv[])
-{
+int main(int argc, char const *argv[]) {
+    
     #ifdef DEBUG
         printf("Running in DEBUG mode\n");
         printf("=====================\n\n");
     #endif
-    printf("Kapish running\n");
+   
     // Load config file (.kapish)
-
 
     // Loop until done
     main_loop();
@@ -40,36 +38,47 @@ int main(int argc, char const *argv[])
 }
 
 int main_loop() {
+    #ifdef DEBUG
+        printf("Main loop entered\n");
+    #endif
     int status = 1;
     char *input_line;
     int line_len;
     char **tokens;
-    int *num_tokens;
+    int num_tokens;
     while(status) {
         printf("? ");
         input_line = get_input_line(); // one more than the number of actual characters
         line_len = strlen(input_line);
-
+        tokens = tokenize(input_line, &num_tokens);
+        
+        // Tokens are not being stored correctly. The number of tokens is correct. 10:30am jan 21
         #ifdef DEBUG
-            printf("hex and isspace: \n");
-            print_hex(input_line);
-            print_isspace(input_line);
-            printf("line length: %d\n", line_len); // debug
+            printf("Number of tokens recorded: %d\n", num_tokens);
+            printf("Line length: %d\n", line_len);
+            printf("First token: %s\n", *tokens);
+            
+
+            // printf("\n");
         #endif
 
-        num_tokens = NULL;
-        tokens = tokenize(input_line, num_tokens);
-        
-        /* debug */
+
+        /* 
         int i;
-        for(i = 0; i < *num_tokens; i++) {
+        for(i = 0; i < num_tokens; i++) {
             printf("%s\n", *(tokens + i));
         }
-        
+        */
         // TODO check for a builtin, otherwise (try to) execute the specified binary file
         // TODO prevent control+c from terminating kapish
         // TODO Update Status
+        free(input_line);
+
+        //  TODO need to free tokens
     }
+    #ifdef DEBUG
+        printf("Main loop finished. Returning.\n");
+    #endif
     return 0;
 }
 
@@ -77,6 +86,9 @@ int main_loop() {
  * Removes trailing whitespace from (null-terminated) string
  */
 void chop(char *str) {
+    #ifdef DEBUG
+        printf("Chopping string: \'%s\'\n", str);
+    #endif
     char *p = str + (strlen(str) - 1) * sizeof(char);
     while(isspace(*p)) {
         *p = '\0';
@@ -117,7 +129,7 @@ char* get_input_line() {
     *(input_line+chars) = '\0';
     chop(input_line);
     #ifdef DEBUG
-        printf("input line retrieved: %s", input_line);
+        printf("input line retrieved: %s\n", input_line);
     #endif
     return input_line;
 }
@@ -130,13 +142,21 @@ char** tokenize(char *str, int *num_tokens) {
     #ifdef DEBUG
         printf("tokenizing string\'%s\' of length %lu", str, strlen(str));
     #endif
+    printf("in tokenize\n");
+
     int len = strlen(str);
+
     int buffer_increment = len/5;
     int buffer_size = buffer_increment;
+
     char **tokens = emalloc(buffer_size * sizeof(char*));
     char *token = strtok(str, " ");
     int tokens_stored = 0;
+
     while(token) {
+
+        printf("token #%d = \'%s\'\n", tokens_stored, token);
+
         // store the token, resize buffer if necessary
         if(tokens_stored >= buffer_size) {
             buffer_size = buffer_size + buffer_increment;
@@ -146,7 +166,7 @@ char** tokenize(char *str, int *num_tokens) {
                 exit(3);
             }
         }
-        *(tokens + tokens_stored + 1) = token;
+        *(tokens + (tokens_stored)*sizeof(char *)) = token;
         tokens_stored++;
 
         token = strtok(NULL, " ");
@@ -161,6 +181,9 @@ char** tokenize(char *str, int *num_tokens) {
     return tokens;
 } 
 
+/*
+ * Error-handling wrapper for malloc
+ */
 void *emalloc(int size) {
     void *p = malloc(size);
     if(!p) {
@@ -187,7 +210,7 @@ void print_hex(char *str) {
 void print_isspace(char *str) {
     int i;
     for(i = 0; i < strlen(str); i++) {
-        printf("|%d| ", isspace(str[i]));
+        printf("|%d| ", isspace(*(str + i)));
     }
     printf("\n");
 }
