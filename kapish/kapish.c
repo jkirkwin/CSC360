@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h> // isspace
+
 #include "kapish.h"
 
 // An array of pointers...
@@ -38,7 +40,7 @@ int main(int argc, char const *argv[])
 }
 
 int main_loop() {
-    int status = 1;//, i = 0;
+    int status = 1;
     char *input_line;
     int line_len;
     char **tokens;
@@ -58,15 +60,28 @@ int main_loop() {
         
         // TODO check for a builtin, otherwise (try to) execute the specified binary file
         // TODO prevent control+c from terminating kapish
+        // TODO Update Status
     }
 
 
     return 0;
 }
 
+/*
+ * Removes trailing whitespace from (null-terminated) string
+ */
+void chop(char *str) {
+    char *p = str + (strlen(str) + 1) * sizeof(char);
+    while(isspace(*p)) {
+        *p = '\0';
+        p = p - sizeof(char);
+    }
+}
+
 /* 
  * Get a line of input from stdin character-by-character to ensure we don't chop off the 
- * end of the input as we might when using a buffer
+ * end of the input as we might when using a buffer.
+ * Strips any trailing whitespace from the string before returning it.
  */
 char* get_input_line() {
     #ifdef DEBUG
@@ -82,17 +97,17 @@ char* get_input_line() {
     do {
         c = getchar();
         if(chars > buffsize-3) {
-        // increase input_line memory
-        buffsize = buffsize * 2;
-        input_line = (char *) realloc(input_line, buffsize);
-        if(!input_line) {
-            printf("Realloc Failed\n");
-            exit(2);
+            // increase input_line memory
+            buffsize = buffsize * 2;
+            input_line = (char *) realloc(input_line, buffsize);
+            if(!input_line) {
+                printf("Realloc Failed\n");
+                exit(2);
+            }
         }
-    }
-    *(input_line + chars) = c;
-    chars++;
-    }while(c != EOF && c != '\n');
+        *(input_line + chars) = c;
+        chars++;
+    } while(c != EOF && c != '\n' && c != '\r');
     *(input_line+chars) = '\0'; // it appears that this may not be working...
     printf("input line retrieved: %s", input_line);
     return input_line;
