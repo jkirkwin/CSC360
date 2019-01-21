@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "kapish.h"
 
 // An array of pointers...
@@ -35,11 +36,14 @@ int main(int argc, char const *argv[])
 int main_loop() {
     int status = 1;//, i = 0;
     char *input_line;
+    int line_len;
     // char **tokens;
     while(status) {
         printf("? ");
         input_line = get_input_line();
-        printf("input line: %s", input_line);
+        line_len = strlen(input_line);
+        printf("input line:  %s\n", input_line);
+        printf("line length: %d\n", line_len);
 
         // TODO tokenize the line
         // strtok(input_line, 's')
