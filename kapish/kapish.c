@@ -49,10 +49,18 @@ int main_loop() {
         printf("? ");
         input_line = get_input_line(); // one more than the number of actual characters
         line_len = strlen(input_line);
-        printf("line length: %d\n", line_len);
+
+        #ifdef DEBUG
+            printf("hex and isspace: \n");
+            print_hex(input_line);
+            print_isspace(input_line);
+            printf("line length: %d\n", line_len); // debug
+        #endif
+
         num_tokens = NULL;
         tokens = tokenize(input_line, num_tokens);
         
+        /* debug */
         int i;
         for(i = 0; i < *num_tokens; i++) {
             printf("%s\n", *(tokens + i));
@@ -62,8 +70,6 @@ int main_loop() {
         // TODO prevent control+c from terminating kapish
         // TODO Update Status
     }
-
-
     return 0;
 }
 
@@ -71,7 +77,7 @@ int main_loop() {
  * Removes trailing whitespace from (null-terminated) string
  */
 void chop(char *str) {
-    char *p = str + (strlen(str) + 1) * sizeof(char);
+    char *p = str + (strlen(str) - 1) * sizeof(char);
     while(isspace(*p)) {
         *p = '\0';
         p = p - sizeof(char);
@@ -108,8 +114,11 @@ char* get_input_line() {
         *(input_line + chars) = c;
         chars++;
     } while(c != EOF && c != '\n' && c != '\r');
-    *(input_line+chars) = '\0'; // it appears that this may not be working...
-    printf("input line retrieved: %s", input_line);
+    *(input_line+chars) = '\0';
+    chop(input_line);
+    #ifdef DEBUG
+        printf("input line retrieved: %s", input_line);
+    #endif
     return input_line;
 }
 
@@ -159,4 +168,26 @@ void *emalloc(int size) {
         exit(1);
     }
     return p;
+}
+
+/* 
+ * Prints the hex representation of each character until a null char is encountered.
+ */ 
+void print_hex(char *str) {
+    int i;
+    for(i = 0; i < strlen(str); i++) {
+        printf("|%d| ", *(str+i));
+    }
+    printf("\n");
+}
+
+/*
+ * Prints the output of isspace for each char before the \0
+ */
+void print_isspace(char *str) {
+    int i;
+    for(i = 0; i < strlen(str); i++) {
+        printf("|%d| ", isspace(str[i]));
+    }
+    printf("\n");
 }
