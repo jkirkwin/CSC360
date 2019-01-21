@@ -15,4 +15,4 @@ kapish.o : kapish.c kapish.h
 	gcc $(CFLAGS) -c kapish.c
 
 clean : 
-	rm -rf *.exe *.o
+	rm -rf *.exe *.o kapish
