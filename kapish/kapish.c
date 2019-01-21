@@ -43,38 +43,31 @@ int main_loop() {
     #endif
     int status = 1;
     char *input_line;
-    int line_len;
     char **tokens;
     int num_tokens;
     while(status) {
         printf("? ");
-        input_line = get_input_line(); // one more than the number of actual characters
-        line_len = strlen(input_line);
+        input_line = get_input_line();
         tokens = tokenize(input_line, &num_tokens);
-        
-        // Tokens are not being stored correctly. The number of tokens is correct. 10:30am jan 21
         #ifdef DEBUG
             printf("Number of tokens recorded: %d\n", num_tokens);
-            printf("Line length: %d\n", line_len);
-            printf("First token: %s\n", *tokens);
-            
-
-            // printf("\n");
+            int i;
+            printf("Tokens: {");
+            for(i = 0; i < num_tokens; i++) {
+                printf("%s", tokens[i]);
+                if(i < num_tokens - 1) {
+                    printf(", ");
+                }
+            }
+            printf("}\n");
         #endif
 
-
-        /* 
-        int i;
-        for(i = 0; i < num_tokens; i++) {
-            printf("%s\n", *(tokens + i));
-        }
-        */
         // TODO check for a builtin, otherwise (try to) execute the specified binary file
         // TODO prevent control+c from terminating kapish
         // TODO Update Status
+        
         free(input_line);
-
-        //  TODO need to free tokens
+        free(tokens);
     }
     #ifdef DEBUG
         printf("Main loop finished. Returning.\n");
@@ -139,10 +132,10 @@ char* get_input_line() {
  * of all tokens
  */
 char** tokenize(char *str, int *num_tokens) {
+    #define WHITESPACE_DELIM " \n\r\t\a"
     #ifdef DEBUG
-        printf("tokenizing string\'%s\' of length %lu", str, strlen(str));
+        printf("tokenizing string \'%s\' of length %lu\n", str, strlen(str));
     #endif
-    printf("in tokenize\n");
 
     int len = strlen(str);
 
@@ -150,13 +143,10 @@ char** tokenize(char *str, int *num_tokens) {
     int buffer_size = buffer_increment;
 
     char **tokens = emalloc(buffer_size * sizeof(char*));
-    char *token = strtok(str, " ");
+    char *token = strtok(str, WHITESPACE_DELIM);
     int tokens_stored = 0;
 
     while(token) {
-
-        printf("token #%d = \'%s\'\n", tokens_stored, token);
-
         // store the token, resize buffer if necessary
         if(tokens_stored >= buffer_size) {
             buffer_size = buffer_size + buffer_increment;
@@ -166,12 +156,10 @@ char** tokenize(char *str, int *num_tokens) {
                 exit(3);
             }
         }
-        *(tokens + (tokens_stored)*sizeof(char *)) = token;
-        tokens_stored++;
-
-        token = strtok(NULL, " ");
+        tokens[tokens_stored++] = token; 
+        token = strtok(NULL, WHITESPACE_DELIM);
     }
-    // Free up unnecessary memory
+    // Free up unused memory
     tokens = realloc(tokens, tokens_stored*sizeof(char *));
     if(!tokens) {
         printf("Reallocation Failed\n");
