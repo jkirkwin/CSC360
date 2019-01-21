@@ -53,3 +53,5 @@ dkms.conf
 
 #A1 Warmup
 A1Warmup/Pt2/*.txt
+.vscode/settings.json
+.vscode/settings.json
