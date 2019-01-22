@@ -153,11 +153,13 @@ char** tokenize(char *str, int *num_tokens) {
     while(token) {
         // store the token, resize buffer if necessary
         if(tokens_stored >= buffer_size) {
-            printf("Reallocating. Tokens stored: %d, buffer size: %d\n", tokens_stored, buffer_size);
+            #ifdef DEBUG
+                printf("Reallocating. Tokens stored: %d, buffer size: %d\n", tokens_stored, buffer_size);
+            #endif
             buffer_size = buffer_size + buffer_increment;
             tokens = realloc(tokens, buffer_size*sizeof(char*));
             if(!tokens) {
-                printf("Reallocation Failed for token pointer array\n");
+                printf("Reallocation Failed during tokenization\n");
                 exit(3);
             }
         }
@@ -166,10 +168,12 @@ char** tokenize(char *str, int *num_tokens) {
     }
     // Free up unused memory
     if(tokens_stored) {
-        printf("Reallocating to free unused space. Tokens stored: %d\n", tokens_stored);
+        #ifdef DEBUG
+            printf("Reallocating to free unused space. Tokens stored: %d\n", tokens_stored);
+        #endif
         tokens = realloc(tokens, tokens_stored*sizeof(char *));
         if(!tokens) {
-            printf("Reallocation Failed in optimization for tokens\n");
+            printf("Reallocation Failed in optimization for token storage\n");
             exit(3);
         }
     } else {
@@ -186,7 +190,7 @@ char** tokenize(char *str, int *num_tokens) {
 void *emalloc(int size) {
     void *p = malloc(size);
     if(!p) {
-        printf("Malloc Failed.");
+        printf("EMalloc Failed. Requested size: %d", size);
         exit(1);
     }
     return p;
