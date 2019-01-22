@@ -67,7 +67,9 @@ int main_loop() {
         // TODO Update Status
         
         free(input_line);
-        free(tokens);
+        if(tokens) {
+            free(tokens);
+        }
     }
     #ifdef DEBUG
         printf("Main loop finished. Returning.\n");
@@ -112,7 +114,7 @@ char* get_input_line() {
             buffsize = buffsize * 2;
             input_line = (char *) realloc(input_line, buffsize);
             if(!input_line) {
-                printf("Realloc Failed\n");
+                printf("Realloc Failed for input_line\n");
                 exit(2);
             }
         }
@@ -133,13 +135,13 @@ char* get_input_line() {
  */
 char** tokenize(char *str, int *num_tokens) {
     #define WHITESPACE_DELIM " \n\r\t\a"
+    #define MIN_BUF_INCREMENT 10 
     #ifdef DEBUG
         printf("tokenizing string \'%s\' of length %lu\n", str, strlen(str));
     #endif
 
     int len = strlen(str);
-
-    int buffer_increment = len/5;
+    int buffer_increment = len/5 >= MIN_BUF_INCREMENT ? len/5 : MIN_BUF_INCREMENT;
     int buffer_size = buffer_increment;
 
     char **tokens = emalloc(buffer_size * sizeof(char*));
@@ -152,7 +154,7 @@ char** tokenize(char *str, int *num_tokens) {
             buffer_size = buffer_size + buffer_increment;
             tokens = realloc(tokens, buffer_size*sizeof(char*));
             if(!tokens) {
-                printf("Reallocation Failed\n");
+                printf("Reallocation Failed for token pointer array\n");
                 exit(3);
             }
         }
@@ -160,12 +162,17 @@ char** tokenize(char *str, int *num_tokens) {
         token = strtok(NULL, WHITESPACE_DELIM);
     }
     // Free up unused memory
-    tokens = realloc(tokens, tokens_stored*sizeof(char *));
-    if(!tokens) {
-        printf("Reallocation Failed\n");
-        exit(3);
-    }
-    *num_tokens = tokens_stored;
+    if(tokens_stored) {
+        tokens = realloc(tokens, tokens_stored*sizeof(char *));
+        if(!tokens) {
+            printf("Reallocation Failed in optimization for tokens\n");
+            exit(3);
+        }
+    } else {
+        free(tokens);
+        *num_tokens = tokens_stored;
+        return NULL;  
+    }   
     return tokens;
 } 
 
