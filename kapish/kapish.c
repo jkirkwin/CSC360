@@ -136,13 +136,15 @@ char* get_input_line() {
 char** tokenize(char *str, int *num_tokens) {
     #define WHITESPACE_DELIM " \n\r\t\a"
     #define MIN_BUF_INCREMENT 10 
-    #ifdef DEBUG
-        printf("tokenizing string \'%s\' of length %lu\n", str, strlen(str));
-    #endif
 
     int len = strlen(str);
     int buffer_increment = len/5 >= MIN_BUF_INCREMENT ? len/5 : MIN_BUF_INCREMENT;
     int buffer_size = buffer_increment;
+
+    #ifdef DEBUG
+        printf("tokenizing string \'%s\' of length %lu\n", str, strlen(str));
+        printf("using buffer increments of size %d\n", buffer_increment);
+    #endif
 
     char **tokens = emalloc(buffer_size * sizeof(char*));
     char *token = strtok(str, WHITESPACE_DELIM);
@@ -151,6 +153,7 @@ char** tokenize(char *str, int *num_tokens) {
     while(token) {
         // store the token, resize buffer if necessary
         if(tokens_stored >= buffer_size) {
+            printf("Reallocating. Tokens stored: %d, buffer size: %d\n", tokens_stored, buffer_size);
             buffer_size = buffer_size + buffer_increment;
             tokens = realloc(tokens, buffer_size*sizeof(char*));
             if(!tokens) {
@@ -163,6 +166,7 @@ char** tokenize(char *str, int *num_tokens) {
     }
     // Free up unused memory
     if(tokens_stored) {
+        printf("Reallocating to free unused space. Tokens stored: %d\n", tokens_stored);
         tokens = realloc(tokens, tokens_stored*sizeof(char *));
         if(!tokens) {
             printf("Reallocation Failed in optimization for tokens\n");
@@ -170,9 +174,9 @@ char** tokenize(char *str, int *num_tokens) {
         }
     } else {
         free(tokens);
-        *num_tokens = tokens_stored;
-        return NULL;  
+        tokens = NULL;  
     }   
+    *num_tokens = tokens_stored;
     return tokens;
 } 
 
