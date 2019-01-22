@@ -13,11 +13,23 @@
 
 #include "kapish.h"
 
-char * builtin_cmds [] = { 
+// TODO Generate from .kapishrc?
+
+int builtins = 4;
+
+char * builtin_names [] = { 
     "setenv\0",
     "unsetenv\0",
     "cd\0",
-    "exit\0",
+    "exit\0"
+};
+
+// Functions corresponding to the builting commands above
+int(*builtin_functions[])(int, char**) = {
+    &builtin_cd,
+    &builtin_exit,
+    &builtin_setenv,
+    &builtin_unsetenv
 };
 
 int main(int argc, char const *argv[]) {
@@ -41,11 +53,11 @@ int main_loop() {
     #ifdef DEBUG
         printf("Main loop entered\n");
     #endif
-    int status = 1;
+    int status = 0;
     char *input_line;
     char **tokens;
     int num_tokens;
-    while(status) {
+    while(0 == status) {
         printf("? ");
         input_line = get_input_line();
         tokens = tokenize(input_line, &num_tokens);
@@ -61,11 +73,13 @@ int main_loop() {
             }
             printf("}\n");
         #endif
-
-        // TODO check for a builtin, otherwise (try to) execute the specified binary file
-        // TODO prevent control+c from terminating kapish
-        // TODO Update Status
+        status = execute(num_tokens, tokens);
         
+        // TODO display working dir before "? "
+        // TODO actually use the .kapishrc file to handle builtins
+        // TODO prevent control+c from terminating kapish
+        // TODO Implement history cmd and ! functionality
+
         free(input_line);
         if(tokens) {
             free(tokens);
@@ -180,6 +194,64 @@ char** tokenize(char *str, int *num_tokens) {
     *num_tokens = tokens_stored;
     return tokens;
 } 
+
+/*
+ * Execute the command given.
+ * Return 0 if successful, non-0 otherwise.
+ */
+int execute(int num_args, char ** args) {
+    // TODO check for a builtin, otherwise (try to) execute the specified binary file
+    if(0 == num_args || NULL == args || NULL == args[0]) {
+        return 0; // No command given
+    }
+    char* cmd = args[0];
+    int i;
+    for(i = 0; i < builtins; i++) {
+        if(0 == strcmp(cmd, builtin_names[i])) {
+            return builtin_functions[i](num_args, args);
+        }
+    }
+    return execute_binary(num_args, args);
+}
+
+/* TODO
+ * Queries PATH (and ENV Variables?) to find the corresponding binary file
+ * Returns 0 if process started successfully 
+ */
+int execute_binary(int num_args, char **args) {
+    return -1;
+}
+
+/* TODO
+ * Exit the program
+ */
+int builtin_exit(int num_args, char **args) {
+    return 1;
+    // Call teardown if required, then exit(0);
+}
+
+/* TODO
+ * Change working directory to the one specified
+ */
+int builtin_cd(int num_args, char **args) {
+    return -1;
+}
+
+/* TODO
+ * Create env var if it does not exist 
+ * Intialize as specified (or to empty string if no option provided)
+ */
+int builtin_setenv(int num_args, char **args) {
+    return -1;
+}
+
+/* TODO
+ * Destroy env variable specified
+ */
+int builtin_unsetenv(int num_args, char **args) {
+    return -1;
+}
+
 
 /*
  * Error-handling wrapper for malloc
