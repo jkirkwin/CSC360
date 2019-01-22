@@ -101,15 +101,12 @@ char* get_input_line() {
         printf("getting input line\n");
     #endif
     int buffsize = 1000;
-
-    // have memory reserved for *input_line to *(input_line + buffsize - 1);
-
     char *input_line = (char *) emalloc(sizeof(char) * buffsize);
     int chars = 0;
     char c;
     do {
         c = getchar();
-        if(chars > buffsize-3) {
+        if(chars > buffsize - 2) {
             // increase input_line memory
             buffsize = buffsize * 2;
             input_line = (char *) realloc(input_line, buffsize);
@@ -131,7 +128,7 @@ char* get_input_line() {
 
 /*
  * Tokenizes the string passed in, stores the number of tokens generated, and returns an array
- * of all tokens
+ * of all tokens. Returns null if no tokens are found.
  */
 char** tokenize(char *str, int *num_tokens) {
     #define WHITESPACE_DELIM " \n\r\t\a"
