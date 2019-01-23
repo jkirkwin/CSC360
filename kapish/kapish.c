@@ -14,12 +14,12 @@
 
 #include "kapish.h"
 
+#define BUILTINS 4
 typedef struct mapping {
     char *name;
     int (*handler)(int, char**);
 } mapping_t;
 
-#define BUILTINS 4
 mapping_t mappings[] = {
     {"cd\0", &builtin_cd},
     {"exit\0", &builtin_exit},
@@ -28,13 +28,14 @@ mapping_t mappings[] = {
 };
 
 int main(int argc, char const *argv[]) {
-    
     #ifdef DEBUG
         printf("Running in DEBUG mode\n");
         printf("=====================\n\n");
     #endif
    
     // Load config file (.kapish)
+    // TODO
+    // init();
 
     // Loop until done
     main_loop();
@@ -44,19 +45,49 @@ int main(int argc, char const *argv[]) {
     return 0;
 }
 
+/*
+ * Loads the config file .kapishrc from the users home 
+ * directory and sets up the shell
+ */ 
+void init() {
+    // TODO
+    #define CONFIG_NAME ".kapishrc"
+    #define HOME getenv("HOME")
+    
+    // Build filename string
+    int len = strlen(CONFIG_NAME) + strlen(HOME) + 2;
+    char *filename = emalloc(sizeof(char) * len);
+    strncpy(HOME, filename, len-2);
+    strncat(filename, "/", len-2);
+    strncat(filename, CONFIG_NAME, strlen(CONFIG_NAME));
+    filename[len-1] = '\0';
+
+    // printf("2. %s\n", getenv("HOME"));
+    // printf("Should be:          %s%s%s\n", HOME, "/", CONFIG_NAME);
+    // printf("Filename generated: %s\n", filename);
+    // return;
+
+    FILE *fileptr = fopen(filename, "r");
+    if(NULL == fileptr) {
+        printf("ERROR: Cannot find configuration file in user's home directory.\n");
+        return;
+    }
+
+
+}
+
 int main_loop() {
     #ifdef DEBUG
         printf("Main loop entered\n");
     #endif
-    #define MAX_PATH_LENGTH 100
-    char pathbuff[MAX_PATH_LENGTH + 1]; 
+
     int status = 0;
     char *input_line;
     char **tokens;
     int num_tokens;
     while(0 == status) {
 
-        printf("%s ? ", getcwd(pathbuff, MAX_PATH_LENGTH));
+        printf("? ");
         input_line = get_input_line();
         tokens = tokenize(input_line, &num_tokens);
         #ifdef DEBUG
@@ -73,14 +104,13 @@ int main_loop() {
         #endif
         status = execute(num_tokens, tokens);
         
-        // TODO Write setenv, unsetenv, exit
+        // TODO Write setenv, unsetenv
         // TODO Write execute_binary
-        // TODO use .kapishrc to set terminal type (and hopefully more)
+        // TODO use .kapishrc to set terminal type (and hopefully more) in init
                 // setenv TERM xxxx seems to be the syntax for this
+        // TODO Implement history builtin and ! functionality
         // TODO prevent control+c from terminating kapish -> from the looks of it ^C interrupts 
         //      the process, likely just need a handler for this.
-        // TODO Implement history cmd and ! functionality
-        // TODO change colour of working dir text nad "? " relative to input text from user
 
         free(input_line);
         if(tokens) {
@@ -199,10 +229,11 @@ char** tokenize(char *str, int *num_tokens) {
 
 /*
  * Execute the command given.
+ * Checks for a built-in function matching args[0], otherwise (trys to) execute 
+ * args[0] as a binary file via PATH
  * Return 0 if successful, non-0 otherwise.
  */
 int execute(int num_args, char ** args) {
-    // TODO check for a builtin, otherwise (try to) execute the specified binary file
     if(0 == num_args || NULL == args || NULL == args[0]) {
         return 0; // No command given
     }
@@ -225,49 +256,80 @@ int execute_binary(int num_args, char **args) {
     return 0;
 }
 
-/* TODO
+/* 
  * Exit the program
  */
 int builtin_exit(int num_args, char **args) {
-    printf("Exit not implemented yet\n");
-    return 0;
-    // Call teardown if required, then exit(0);
+    // TODO Review this and add call to teardown() function if necessary  
+    exit(0);
 }
 
 /*
  * Change working directory to the one specified
  */
 int builtin_cd(int num_args, char **args) {
-    if(num_args < 2 || NULL == args[1]) {
-        printf("Error. No directory specified.\n");
+    if(1 == num_args || NULL == args[1] || strncmp("~\0", args[1], strlen(args[1])) == 0) {
+        char *homedir = getenv("HOME");
+        int status = chdir(homedir);
+        if(0 == status) {
+            printf("%s\n", homedir);
+        } else {
+            printf("Failed to switch to home directory\n");
+        }
+        
     } else {
-        int result = chdir(args[1]);
-        if(result) {
+        int status = chdir(args[1]);
+        if(status) {
             printf("Failed to switch dir to \'%s\'\n", args[1]);
         } else {
-            printf("Changed dir to \'%s\'\n", args[1]);
+            int max_path_len = 100;
+            char pathbuff[max_path_len + 1];
+            getcwd(pathbuff, max_path_len); 
+            printf("%s\n", pathbuff);
         }
     }
     return 0;
 }
 
-/* TODO
+/* 
  * Create env var if it does not exist 
- * Intialize as specified (or to empty string if no option provided)
+ * Initialize as specified (or to empty string if no option provided)
  */
 int builtin_setenv(int num_args, char **args) {
-    printf("Setenv not implemented yet\n");
+    // TODO Verify status, syntax, params
+    int status = -1;
+    if(num_args < 2) {
+        printf("No evironment variable specified\n");
+        return 0;
+    } else if(num_args < 3) {
+        status = setenv(args[1], "", 1);
+    } else {
+        status = setenv(args[1], args[2], 1);
+    }
+    if(!status) {
+        printf("%s=%s\n", args[1], getenv(args[1]));
+    } else {
+        printf("Failed to sent environment variable \'%s\'\n", args[1]);
+    }
     return 0;
 }
 
-/* TODO
+/* 
  * Destroy env variable specified
  */
 int builtin_unsetenv(int num_args, char **args) {
-    printf("Unsetenv not implemented yet\n");
+    if(num_args < 2) {
+        printf("No evironment variable specified\n");
+    } else {
+        int status = unsetenv(args[1]);
+        if(!status) {
+            printf("Environment variable \'%s\' unset\n", args[1]);
+        } else {
+            printf("Failed to remove environment variable \'%s\'\n", args[1]);
+        }
+    }
     return 0;
 }
-
 
 /*
  * Error-handling wrapper for malloc

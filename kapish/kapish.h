@@ -1,4 +1,5 @@
 // Functionality
+void init();
 int main_loop();
 char * get_input_line();
 char** tokenize(char *str, int *num_tokens);
