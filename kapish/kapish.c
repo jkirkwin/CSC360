@@ -10,26 +10,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h> // isspace
+#include <unistd.h> // chdir
 
 #include "kapish.h"
 
-// TODO Generate from .kapishrc?
+typedef struct mapping {
+    char *name;
+    int (*handler)(int, char**);
+} mapping_t;
 
-int builtins = 4;
-
-char * builtin_names [] = { 
-    "setenv\0",
-    "unsetenv\0",
-    "cd\0",
-    "exit\0"
-};
-
-// Functions corresponding to the builting commands above
-int(*builtin_functions[])(int, char**) = {
-    &builtin_cd,
-    &builtin_exit,
-    &builtin_setenv,
-    &builtin_unsetenv
+#define BUILTINS 4
+mapping_t mappings[] = {
+    {"cd\0", &builtin_cd},
+    {"exit\0", &builtin_exit},
+    {"setenv\0", &builtin_setenv},
+    {"unsetenv\0", &builtin_unsetenv}
 };
 
 int main(int argc, char const *argv[]) {
@@ -53,12 +48,15 @@ int main_loop() {
     #ifdef DEBUG
         printf("Main loop entered\n");
     #endif
+    #define MAX_PATH_LENGTH 100
+    char pathbuff[MAX_PATH_LENGTH + 1]; 
     int status = 0;
     char *input_line;
     char **tokens;
     int num_tokens;
     while(0 == status) {
-        printf("? ");
+
+        printf("%s ? ", getcwd(pathbuff, MAX_PATH_LENGTH));
         input_line = get_input_line();
         tokens = tokenize(input_line, &num_tokens);
         #ifdef DEBUG
@@ -75,10 +73,14 @@ int main_loop() {
         #endif
         status = execute(num_tokens, tokens);
         
-        // TODO display working dir before "? "
-        // TODO actually use the .kapishrc file to handle builtins
-        // TODO prevent control+c from terminating kapish
+        // TODO Write setenv, unsetenv, exit
+        // TODO Write execute_binary
+        // TODO use .kapishrc to set terminal type (and hopefully more)
+                // setenv TERM xxxx seems to be the syntax for this
+        // TODO prevent control+c from terminating kapish -> from the looks of it ^C interrupts 
+        //      the process, likely just need a handler for this.
         // TODO Implement history cmd and ! functionality
+        // TODO change colour of working dir text nad "? " relative to input text from user
 
         free(input_line);
         if(tokens) {
@@ -206,9 +208,9 @@ int execute(int num_args, char ** args) {
     }
     char* cmd = args[0];
     int i;
-    for(i = 0; i < builtins; i++) {
-        if(0 == strcmp(cmd, builtin_names[i])) {
-            return builtin_functions[i](num_args, args);
+    for(i = 0; i < BUILTINS; i++) {
+        if(0 == strcmp(cmd, mappings[i].name)) {
+            return mappings[i].handler(num_args, args);
         }
     }
     return execute_binary(num_args, args);
@@ -219,22 +221,34 @@ int execute(int num_args, char ** args) {
  * Returns 0 if process started successfully 
  */
 int execute_binary(int num_args, char **args) {
-    return -1;
+    printf("Execute binary not implemented yet\n");
+    return 0;
 }
 
 /* TODO
  * Exit the program
  */
 int builtin_exit(int num_args, char **args) {
-    return 1;
+    printf("Exit not implemented yet\n");
+    return 0;
     // Call teardown if required, then exit(0);
 }
 
-/* TODO
+/*
  * Change working directory to the one specified
  */
 int builtin_cd(int num_args, char **args) {
-    return -1;
+    if(num_args < 2 || NULL == args[1]) {
+        printf("Error. No directory specified.\n");
+    } else {
+        int result = chdir(args[1]);
+        if(result) {
+            printf("Failed to switch dir to \'%s\'\n", args[1]);
+        } else {
+            printf("Changed dir to \'%s\'\n", args[1]);
+        }
+    }
+    return 0;
 }
 
 /* TODO
@@ -242,14 +256,16 @@ int builtin_cd(int num_args, char **args) {
  * Intialize as specified (or to empty string if no option provided)
  */
 int builtin_setenv(int num_args, char **args) {
-    return -1;
+    printf("Setenv not implemented yet\n");
+    return 0;
 }
 
 /* TODO
  * Destroy env variable specified
  */
 int builtin_unsetenv(int num_args, char **args) {
-    return -1;
+    printf("Unsetenv not implemented yet\n");
+    return 0;
 }
 
 
