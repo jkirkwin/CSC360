@@ -11,6 +11,7 @@
 #include <string.h>
 #include <ctype.h> // isspace
 #include <unistd.h> // chdir
+#include <sys/wait.h> // wait
 
 #include "kapish.h"
 
@@ -111,6 +112,7 @@ int main_loop() {
         // TODO Implement history builtin and ! functionality
         // TODO prevent control+c from terminating kapish -> from the looks of it ^C interrupts 
         //      the process, likely just need a handler for this.
+        // TODO Refactor execution functions to be void-returning?
 
         free(input_line);
         if(tokens) {
@@ -252,7 +254,21 @@ int execute(int num_args, char ** args) {
  * Returns 0 if process started successfully 
  */
 int execute_binary(int num_args, char **args) {
-    printf("Execute binary not implemented yet\n");
+    #ifdef DEBUG
+        printf("Attempting to execute process \'%s\'\n", args[0]);
+    #endif
+    int pid = fork();
+    if(pid < 0) {
+        printf("Fork error. Terminating execution attempt for child process %s\n", args[0]);
+        return 0;
+    }
+    if(0 == pid) {
+        execvp(args[0], &args[0]);
+        perror("Fork Error: ");
+        return 1;
+    } else {
+        wait(NULL); // Wait for child to terminate
+    }
     return 0;
 }
 
