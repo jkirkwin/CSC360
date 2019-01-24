@@ -73,23 +73,24 @@ void init() {
         printf("ERROR: Cannot find configuration file in user's home directory.\n");
         return;
     }
-
-
 }
 
 int main_loop() {
     #ifdef DEBUG
         printf("Main loop entered\n");
     #endif
-
+    int eof_flag;
     int status = 0;
     char *input_line;
     char **tokens;
     int num_tokens;
     while(0 == status) {
-
         printf("? ");
-        input_line = get_input_line();
+        eof_flag = 0;
+        input_line = get_input_line(&eof_flag, stdin);
+        if(eof_flag) {
+            builtin_exit(0, NULL);
+        }
         tokens = tokenize(input_line, &num_tokens);
         #ifdef DEBUG
             printf("Number of tokens recorded: %d\n", num_tokens);
@@ -105,14 +106,14 @@ int main_loop() {
         #endif
         status = execute(num_tokens, tokens);
         
-        // TODO Write setenv, unsetenv
-        // TODO Write execute_binary
+        // TODO Refactor get_input_line to read from a file given the filename
         // TODO use .kapishrc to set terminal type (and hopefully more) in init
-                // setenv TERM xxxx seems to be the syntax for this
+        //      setenv TERM xxxx seems to be the syntax for this
+        // TODO Exit on ^D
         // TODO Implement history builtin and ! functionality
-        // TODO prevent control+c from terminating kapish -> from the looks of it ^C interrupts 
-        //      the process, likely just need a handler for this.
         // TODO Refactor execution functions to be void-returning?
+        // TODO Prevent control+c from terminating kapish -> from the looks of it ^C interrupts 
+        //      the process, likely just need a handler for this.
 
         free(input_line);
         if(tokens) {
@@ -143,8 +144,13 @@ void chop(char *str) {
  * Get a line of input from stdin character-by-character to ensure we don't chop off the 
  * end of the input as we might when using a buffer.
  * Strips any trailing whitespace from the string before returning it.
+ * Sets the status flag if EOF was encountered, clears it if not.
  */
-char* get_input_line() {
+char* get_input_line(int *flag, FILE *file) {
+    if(!file) {
+        printf("No file speicified\n");
+        return NULL;
+    }
     #ifdef DEBUG
         printf("getting input line\n");
     #endif
@@ -153,7 +159,8 @@ char* get_input_line() {
     int chars = 0;
     char c;
     do {
-        c = getchar();
+        c = fgetc(file);
+        // c = getchar();
         if(chars > buffsize - 2) {
             // increase input_line memory
             buffsize = buffsize * 2;
@@ -166,6 +173,11 @@ char* get_input_line() {
         *(input_line + chars) = c;
         chars++;
     } while(c != EOF && c != '\n' && c != '\r');
+    if(c == EOF) {
+        *flag = 1;
+    } else {
+        *flag = 0;
+    }
     *(input_line+chars) = '\0';
     chop(input_line);
     #ifdef DEBUG
@@ -257,6 +269,8 @@ int execute_binary(int num_args, char **args) {
     #ifdef DEBUG
         printf("Attempting to execute process \'%s\'\n", args[0]);
     #endif
+    // TODO Check with Yvonne: Spec suggests we need to look through the PATH manually, 
+    //      but it seems like execvp will search for the command on its own
     int pid = fork();
     if(pid < 0) {
         printf("Fork error. Terminating execution attempt for child process %s\n", args[0]);
@@ -264,7 +278,7 @@ int execute_binary(int num_args, char **args) {
     }
     if(0 == pid) {
         execvp(args[0], &args[0]);
-        perror("Fork Error: ");
+        perror("Execution failed: ");
         return 1;
     } else {
         wait(NULL); // Wait for child to terminate
