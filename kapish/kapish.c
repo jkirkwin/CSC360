@@ -3,19 +3,20 @@
  * jkirkwin 
  * V00875987
  * CSC360 Assignment 1, Kapish Shell
- * Modified Jan 20, 2019
+ * Modified Jan 23, 2019
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h> // isspace
-#include <unistd.h> // chdir
+#include <unistd.h> // chdir 
 #include <sys/wait.h> // wait
 
 #include "kapish.h"
+#include "history.h"
 
-#define BUILTINS 4
+#define BUILTINS 5
 typedef struct mapping {
     char *name;
     int (*handler)(int, char**);
@@ -34,15 +35,15 @@ int main(int argc, char const *argv[]) {
         printf("Running in DEBUG mode\n");
         printf("=====================\n\n");
     #endif
-   
-    // Load config file (.kapish)
-    // TODO
-    // init();
+
+    // Initialize data structures and run config commands
+    init();
 
     // Loop until done
     main_loop();
 
     // Do teardown/termination
+
 
     return 0;
 }
@@ -50,12 +51,17 @@ int main(int argc, char const *argv[]) {
 /*
  * Loads the config file .kapishrc from the users home 
  * directory and sets up the shell
+ * 
+ * Initializes command history data structure
  */ 
 void init() {
+
     // TODO
     #define CONFIG_NAME ".kapishrc"
     #define HOME getenv("HOME")
-    
+
+    init_hist();
+
     // Build filename string
     int len = strlen(CONFIG_NAME) + strlen(HOME) + 2;
     char *filename = emalloc(sizeof(char) * len);
@@ -92,6 +98,9 @@ int main_loop() {
         if(eof_flag) {
             builtin_exit(0, NULL);
         }
+        if(input_line && strlen(input_line) > 0 && '!' == input_line[0]) {
+            hist_push(input_line);
+        }
         tokens = tokenize(input_line, &num_tokens);
         #ifdef DEBUG
             printf("Number of tokens recorded: %d\n", num_tokens);
@@ -106,11 +115,14 @@ int main_loop() {
             printf("}\n");
         #endif
         status = execute(num_tokens, tokens);
-        
+
         // TODO use .kapishrc to set terminal type (and hopefully more) in init
         //      setenv TERM xxxx seems to be the syntax for this
         // TODO Implement history builtin and ! functionality
+        // TODO Run Valgrind and troubleshoot memory leaks
         // TODO Refactor execution functions to be void-returning?
+        // TODO Add a test suite in a separate file, testkapish.c, include commands to run the 
+        //      tests in the makefile
         // TODO Prevent control+c from terminating kapish -> from the looks of it ^C interrupts 
         //      the process, likely just need a handler for this.
 
@@ -272,7 +284,7 @@ int execute_binary(int num_args, char **args) {
     //      but it seems like execvp will search for the command on its own
     int pid = fork();
     if(pid < 0) {
-        printf("Fork error. Terminating execution attempt for child process %s\n", args[0]);
+        perror("Fork failed: ");
         return 0;
     }
     if(0 == pid) {
@@ -361,16 +373,24 @@ int builtin_unsetenv(int num_args, char **args) {
     return 0;
 }
 
-/* TODO
+/* 
  * Prints all commands entered into the shell in order
  */
 int builtin_history(int num_args, char **args) {
-    // TODO Implement
-    //      Likely we will want a linkedlist or stack of some type.
-    //      We could also simply use an array that continuously grows.
-    //      To ask Yvonne: Should we save history from past sessions?
-    printf("History is not yet implemented\n");
-    return -1;
+    init_hist(); // for safety
+    printf("History:\n");
+    char *p;
+    int i;
+    for(i = 0; i < hist_size(); i++) {
+        if((p = hist_get(i))) {
+            printf("%d. %s\n", i, p);
+        } else {
+            #ifdef DEBUG
+                printf("No command stored at index %d\n", i)
+            #endif
+        }
+    }
+    return 0;
 }
 
 
