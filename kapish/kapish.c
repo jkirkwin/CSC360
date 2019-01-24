@@ -25,7 +25,8 @@ mapping_t mappings[] = {
     {"cd\0", &builtin_cd},
     {"exit\0", &builtin_exit},
     {"setenv\0", &builtin_setenv},
-    {"unsetenv\0", &builtin_unsetenv}
+    {"unsetenv\0", &builtin_unsetenv},
+    {"history\0", &builtin_history}
 };
 
 int main(int argc, char const *argv[]) {
@@ -106,10 +107,8 @@ int main_loop() {
         #endif
         status = execute(num_tokens, tokens);
         
-        // TODO Refactor get_input_line to read from a file given the filename
         // TODO use .kapishrc to set terminal type (and hopefully more) in init
         //      setenv TERM xxxx seems to be the syntax for this
-        // TODO Exit on ^D
         // TODO Implement history builtin and ! functionality
         // TODO Refactor execution functions to be void-returning?
         // TODO Prevent control+c from terminating kapish -> from the looks of it ^C interrupts 
@@ -146,7 +145,7 @@ void chop(char *str) {
  * Strips any trailing whitespace from the string before returning it.
  * Sets the status flag if EOF was encountered, clears it if not.
  */
-char* get_input_line(int *flag, FILE *file) {
+char* get_input_line(int *eof_flag, FILE *file) {
     if(!file) {
         printf("No file speicified\n");
         return NULL;
@@ -174,9 +173,9 @@ char* get_input_line(int *flag, FILE *file) {
         chars++;
     } while(c != EOF && c != '\n' && c != '\r');
     if(c == EOF) {
-        *flag = 1;
+        *eof_flag = 1;
     } else {
-        *flag = 0;
+        *eof_flag = 0;
     }
     *(input_line+chars) = '\0';
     chop(input_line);
@@ -261,7 +260,7 @@ int execute(int num_args, char ** args) {
     return execute_binary(num_args, args);
 }
 
-/* TODO
+/* 
  * Queries PATH (and ENV Variables?) to find the corresponding binary file
  * Returns 0 if process started successfully 
  */
@@ -287,10 +286,11 @@ int execute_binary(int num_args, char **args) {
 }
 
 /* 
- * Exit the program
+ * Exit the shell
  */
 int builtin_exit(int num_args, char **args) {
     // TODO Review this and add call to teardown() function if necessary  
+    printf("\n");
     exit(0);
 }
 
@@ -360,6 +360,20 @@ int builtin_unsetenv(int num_args, char **args) {
     }
     return 0;
 }
+
+/* TODO
+ * Prints all commands entered into the shell in order
+ */
+int builtin_history(int num_args, char **args) {
+    // TODO Implement
+    //      Likely we will want a linkedlist or stack of some type.
+    //      We could also simply use an array that continuously grows.
+    //      To ask Yvonne: Should we save history from past sessions?
+    printf("History is not yet implemented\n");
+    return -1;
+}
+
+
 
 /*
  * Error-handling wrapper for malloc
