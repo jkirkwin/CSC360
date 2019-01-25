@@ -55,8 +55,6 @@ int main(int argc, char const *argv[]) {
  * Initializes command history data structure
  */ 
 void init() {
-
-    // TODO
     #define CONFIG_NAME ".kapishrc"
     #define HOME getenv("HOME")
 
@@ -70,16 +68,26 @@ void init() {
     strncat(filename, CONFIG_NAME, strlen(CONFIG_NAME));
     filename[len-1] = '\0';
 
-    // printf("2. %s\n", getenv("HOME"));
-    // printf("Should be:          %s%s%s\n", HOME, "/", CONFIG_NAME);
-    // printf("Filename generated: %s\n", filename);
-    // return;
-
     FILE *fileptr = fopen(filename, "r");
     if(NULL == fileptr) {
         printf("ERROR: Cannot find configuration file in user's home directory.\n");
         return;
     }
+
+    int eof_flag = 0;
+    char *config_line = get_input_line(&eof_flag, fileptr);
+    char ** tokens;
+    int num_tokens = 0;
+    while(0 == eof_flag) {
+        printf("> %s\n", config_line);
+        tokens = tokenize(config_line, &num_tokens);
+        execute(num_tokens, tokens);
+        free(tokens);
+        free(config_line);
+        config_line = get_input_line(&eof_flag, fileptr);
+    }
+    printf("Config Complete\n");
+    printf("===============\n");
 }
 
 int main_loop() {
@@ -116,11 +124,6 @@ int main_loop() {
         #endif
         status = execute(num_tokens, tokens);
 
-        // TODO getenv does not appear to actually get the correct HOME variable in linux (or in windows)
-        //      before starting the shell, HOME is listed in env output as /home/jkirkwin but once kapish
-        //      is running env shows HOME="".
-        //      This needs troubleshooting.
-        //
         // TODO use .kapishrc to set terminal type (and hopefully more) in init
         //      setenv TERM xxxx seems to be the syntax for this
         // TODO Implement history builtin and ! functionality
@@ -131,7 +134,7 @@ int main_loop() {
         // 
         // TODO Add a test suite in a separate file, testkapish.c, include commands to run the 
         //      tests in the makefile
-        
+        //        
         // TODO Prevent control+c from terminating kapish -> from the looks of it ^C interrupts 
         //      the process, likely just need a handler for this.
 
@@ -325,15 +328,14 @@ int builtin_cd(int num_args, char **args) {
         if(0 == status) {
             printf("%s\n", homedir);
         } else {
-            printf("Failed to switch to home directory\n");
+            perror("Failed to change to Home dir: ");
         }
-        
     } else {
         int status = chdir(args[1]);
         if(status) {
-            printf("Failed to switch dir to \'%s\'\n", args[1]);
+            perror("Failed to switch dir: ");
         } else {
-            int max_path_len = 100;
+            int max_path_len = 200;
             char pathbuff[max_path_len + 1];
             getcwd(pathbuff, max_path_len); 
             printf("%s\n", pathbuff);
