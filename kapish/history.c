@@ -34,10 +34,16 @@ char *hist_pop() {
  * Push a copy of the string passed
  */ 
 void hist_push(char *cmd) {
+    #ifdef DEBUG
+        printf("Pushing %s into history stack\n", cmd);
+    #endif
     if(!initialized) {
         init_hist();
     }
     if(stack_size <= n) {
+        #ifdef DEBUG
+            printf("Resizing stack\n");
+        #endif
         stack = (char**) realloc(stack, sizeof(char*) * stack_size * 2);
         if(!stack) {
             printf("Realloc failed when increasing history stack size.\n");
@@ -48,7 +54,11 @@ void hist_push(char *cmd) {
     char * copy = (char*) malloc(sizeof(char) * (strlen(cmd)+1) );
     strncpy(copy, cmd, strlen(cmd));
     copy[strlen(cmd)] = '\0';
-    stack[n++] = copy;
+    #ifdef DEBUG
+        printf("Copy of cmd: %s\n", copy);
+    #endif
+    stack[n] = copy;
+    n++;
 }
 
 /* 

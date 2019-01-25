@@ -106,8 +106,22 @@ int main_loop() {
         if(eof_flag) {
             builtin_exit(0, NULL);
         }
-        if(input_line && strlen(input_line) > 0 && '!' == input_line[0]) {
-            hist_push(input_line);
+        if(input_line && strlen(input_line) > 0) {
+            // Check for shebang and log the command in history stack
+            #ifdef DEBUG
+                printf("Hist condition passes\n");
+            #endif
+            if(input_line[0] == '!') {
+                printf("No shebang implementation just yet \n");   
+            } else {
+                printf("Pushing %s into history stack\n", input_line);
+                printf("Hist[0] = %s\n", hist_get(0));
+                hist_push(input_line);
+            }
+        } else {
+            #ifdef DEBUG
+                printf("Hist condition fails\n");
+            #endif
         }
         tokens = tokenize(input_line, &num_tokens);
         #ifdef DEBUG
@@ -124,10 +138,10 @@ int main_loop() {
         #endif
         status = execute(num_tokens, tokens);
 
-        // TODO use .kapishrc to set terminal type (and hopefully more) in init
-        //      setenv TERM xxxx seems to be the syntax for this
         // TODO Implement history builtin and ! functionality
         //
+        // TODO use .kapishrc to set terminal type (and hopefully more) in init
+        //      setenv TERM xxxx seems to be the syntax for this
         // TODO Run Valgrind and troubleshoot memory leaks
         // 
         // TODO Refactor execution functions to be void-returning?
@@ -397,7 +411,7 @@ int builtin_history(int num_args, char **args) {
             printf("%d. %s\n", i, p);
         } else {
             #ifdef DEBUG
-                printf("No command stored at index %d\n", i)
+                printf("No command stored at index %d\n", i);
             #endif
         }
     }
