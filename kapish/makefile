@@ -2,6 +2,14 @@ CFLAGS=-Wall -Werror
 
 all : kapish
 
+test : test_kapish test_history 
+
+test_kapish : kapish test_kapish.c
+	gcc test_kapish.c -o test_kapish
+
+test_history : test_history.c history.c
+	gcc test_history.c history.c -o test_history
+
 relaxed : kapish.c history.c
 	gcc kapish.c history.c -o kapish
 
