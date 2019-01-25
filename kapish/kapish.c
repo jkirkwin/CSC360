@@ -3,7 +3,7 @@
  * jkirkwin 
  * V00875987
  * CSC360 Assignment 1, Kapish Shell
- * Modified Jan 23, 2019
+ * Modified Jan 24, 2019
  */
 
 #include <stdio.h>
@@ -65,7 +65,7 @@ void init() {
     // Build filename string
     int len = strlen(CONFIG_NAME) + strlen(HOME) + 2;
     char *filename = emalloc(sizeof(char) * len);
-    strncpy(HOME, filename, len-2);
+    strncpy(filename, HOME, len-2);
     strncat(filename, "/", len-2);
     strncat(filename, CONFIG_NAME, strlen(CONFIG_NAME));
     filename[len-1] = '\0';
@@ -116,13 +116,22 @@ int main_loop() {
         #endif
         status = execute(num_tokens, tokens);
 
+        // TODO getenv does not appear to actually get the correct HOME variable in linux (or in windows)
+        //      before starting the shell, HOME is listed in env output as /home/jkirkwin but once kapish
+        //      is running env shows HOME="".
+        //      This needs troubleshooting.
+        //
         // TODO use .kapishrc to set terminal type (and hopefully more) in init
         //      setenv TERM xxxx seems to be the syntax for this
         // TODO Implement history builtin and ! functionality
+        //
         // TODO Run Valgrind and troubleshoot memory leaks
+        // 
         // TODO Refactor execution functions to be void-returning?
+        // 
         // TODO Add a test suite in a separate file, testkapish.c, include commands to run the 
         //      tests in the makefile
+        
         // TODO Prevent control+c from terminating kapish -> from the looks of it ^C interrupts 
         //      the process, likely just need a handler for this.
 
