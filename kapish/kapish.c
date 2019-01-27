@@ -102,12 +102,10 @@ void init() {
  */ 
 void sig_handler(int s) {
     signal(s, SIG_IGN); // Ignore signal for the duration of the handler
-    interrupted = 1;
-    if(s == SIGINT) {
-        if(cid > 0) {
-            kill(cid, SIGKILL);
-            cid = 0;
-        }
+    if(s == SIGINT && cid > 0) {
+        interrupted = 1;
+        kill(cid, SIGKILL);
+        cid = 0;
     }
     signal(s, sig_handler); // Re-instate handler
 }
@@ -336,7 +334,12 @@ int execute_binary(int num_args, char **args) {
     } else {
         // Store child id and wait for it to terminate
         cid = pid; 
-        wait(NULL); 
+        wait(NULL);
+        if(interrupted) {
+            printf("\n");
+            interrupted = 0;
+        }
+        cid = 0;
     }
     return 0;
 }
