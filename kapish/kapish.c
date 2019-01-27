@@ -12,6 +12,7 @@
 #include <ctype.h> // isspace
 #include <unistd.h> // chdir 
 #include <sys/wait.h> // wait
+#include <signal.h> // signal handling
 
 #include "kapish.h"
 #include "history.h"
@@ -29,6 +30,8 @@ mapping_t mappings[] = {
     {"unsetenv\0", &builtin_unsetenv},
     {"history\0", &builtin_history}
 };
+
+int cid = 0;
 
 int main(int argc, char const *argv[]) {
     #ifdef DEBUG
@@ -60,6 +63,9 @@ void init() {
 
     init_hist();
 
+    // Set ctrl-c handler
+    signal(SIGINT, sig_handler);
+
     // Build filename string
     int len = strlen(CONFIG_NAME) + strlen(HOME) + 2;
     char *filename = emalloc(sizeof(char) * len);
@@ -88,6 +94,24 @@ void init() {
     }
     printf("Config Complete\n");
     printf("===============\n");
+}
+
+void sig_handler(int s) {
+    signal(s, SIG_IGN); // Ignore signal for the duration of the handler
+    if(s == SIGINT) {
+        #ifdef DEBUG
+            printf("Interrupt signal received.\n");
+        #endif
+        if(cid > 0) {
+            #ifdef DEBUG
+                printf("Killing child process\n");
+            #endif
+            kill(cid, SIGKILL);
+            cid = 0;
+        }
+
+    }
+    signal(s, sig_handler); // Re-instate handler
 }
 
 int main_loop() {
@@ -312,7 +336,9 @@ int execute_binary(int num_args, char **args) {
         perror("Execution failed: ");
         return 1;
     } else {
-        wait(NULL); // Wait for child to terminate
+        // Store child id and wait for it to terminate
+        cid = pid; 
+        wait(NULL); 
     }
     return 0;
 }
