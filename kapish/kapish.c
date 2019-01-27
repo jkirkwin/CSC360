@@ -108,21 +108,18 @@ int main_loop() {
         }
         if(input_line && strlen(input_line) > 0) {
             // Check for shebang and log the command in history stack
-            #ifdef DEBUG
-                printf("Hist condition passes\n");
-            #endif
             if(input_line[0] == '!') {
-                printf("No shebang implementation just yet \n");   
-            } else {
-                printf("Pushing %s into history stack\n", input_line);
-                printf("Hist[0] = %s\n", hist_get(0));
-                hist_push(input_line);
+                // Push the command that matches if there is one. 
+                // Push the command entered otherwise.
+                int match = match_prefix(strlen(input_line) > 1 ? &input_line[1] : "");
+                if(match > -1) {
+                    free(input_line);
+                    input_line = hist_get(match);
+                    printf("%s\n", input_line);
+                }
             }
-        } else {
-            #ifdef DEBUG
-                printf("Hist condition fails\n");
-            #endif
-        }
+            hist_push(input_line);
+        } 
         tokens = tokenize(input_line, &num_tokens);
         #ifdef DEBUG
             printf("Number of tokens recorded: %d\n", num_tokens);
@@ -399,16 +396,17 @@ int builtin_unsetenv(int num_args, char **args) {
 }
 
 /* 
- * Prints all commands entered into the shell in order
+ * Prints all commands entered into the shell in the order they 
+ * were entered 
  */
 int builtin_history(int num_args, char **args) {
     init_hist(); // for safety
     printf("History:\n");
     char *p;
     int i;
-    for(i = 0; i < hist_size(); i++) {
+    for(i = hist_size()-1; i >= 0; i--) {
         if((p = hist_get(i))) {
-            printf("%d. %s\n", i, p);
+            printf(">>> %s\n", p);
         } else {
             #ifdef DEBUG
                 printf("No command stored at index %d\n", i);
@@ -417,7 +415,6 @@ int builtin_history(int num_args, char **args) {
     }
     return 0;
 }
-
 
 
 /*

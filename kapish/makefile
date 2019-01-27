@@ -1,6 +1,6 @@
 CFLAGS=-Wall -Werror
 
-all : kapish
+default : kapish
 
 test : test_kapish test_history 
 
