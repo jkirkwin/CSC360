@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "history.h"
 
@@ -11,8 +12,9 @@ int test_init_hist();
 int test_clear_hist();
 int test_match_prefix();
 
-void uninitialize();
+char **getwords(int num_words);
 void setup(int num_elements, char **elements);
+void set_error(char *);
 
 #define BUFFSIZE 100
 char error_buffer[BUFFSIZE];
@@ -47,16 +49,43 @@ int main() {
     printf("Suite Completed. %d/%d Tests Passed.\n", tests_passed, NUM_TESTS);
 }
 
-
-void uninitialize() {
-    // TODO clear the list
+void set_error(char *msg) {
+    int len = strlen(msg);
+    if(len >= BUFFSIZE) {
+     len = BUFFSIZE-1;
+    }
+    strncpy(error_buffer, msg, len);
+    error_buffer[len] = '\0';   
 }
 
+char **getwords(int num_words) {
+    char **words = (char**) malloc(sizeof(char*) * num_words);
+    if(!words) {
+        perror("Malloc failed: ");
+        exit(1);
+    }
+    char *word;
+    int i;
+    for(i = 0; i < num_words; i++) {
+        word = (char*) malloc(sizeof(char) * 30);
+        sprintf(word, "word%d", i);
+        words[i] = word;
+    }
+    return words;
+}
 
 void setup(int num_elements, char **elements) {
-    // uninitialize 
+    // uninitialize
+    clear_hist();
+
     // re-init
+    init_hist();
+
     // insert elements with push()
+    int i;
+    for(i = 0; i < num_elements; i++) {
+        hist_push(elements[i]);
+    }
 }
 
 
@@ -95,7 +124,29 @@ int test_hist_size() {
     //      Empty list
     //      List with 1 item
     //      List with some items
-    return -1;
+    clear_hist();
+    if(hist_size() != 0) {
+        set_error("uninitialized list size not 0");
+        return 1;
+    } 
+    init_hist();
+    if(hist_size() != 0) {
+        set_error("empty list size not 0");
+        return 1;
+    } 
+    char *singleton = "t h s";
+    setup(1, &singleton); 
+    if(hist_size() != 1) {
+        set_error("single item list size not 1");
+        return 1;
+    } 
+    char **words = getwords(100);
+    setup(100, words);
+    if(hist_size() != 100) {
+        set_error("list of size 100 incorrect size");
+        return 1;
+    } 
+    return 0;
 }
 
 
