@@ -1,3 +1,7 @@
+/*
+ * A stack for history command support in Kapish
+ */ 
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -20,10 +24,12 @@ void init_hist() {
         exit(1);
     }
     stack_size = INITIAL_STACK_SIZE;
+    n = 0;
+    initialized = 1;
 }
 
 char *hist_pop() {
-    if(n < 1) {
+    if(!initialized || n < 1) {
         return NULL;
     }
     n--;
@@ -78,7 +84,7 @@ char *hist_get(int index) {
  * the specified prefix, -1 if no match exists.
  */
 int match_prefix(char *prefix) {
-    if(!prefix) {
+    if(!initialized || !prefix) {
         return -1;
     }
     int index;
@@ -109,4 +115,8 @@ void clear_hist() {
     n = 0;
     stack_size = 0;
     initialized = 0;
+}
+
+int is_initialized() {
+    return initialized;
 }

@@ -5,3 +5,4 @@ int hist_size();
 void init_hist();
 void clear_hist();
 int match_prefix(char *);
+int is_initialized();
