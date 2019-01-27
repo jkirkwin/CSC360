@@ -383,7 +383,6 @@ int builtin_cd(int num_args, char **args) {
  * Initialize as specified (or to empty string if no option provided)
  */
 int builtin_setenv(int num_args, char **args) {
-    // TODO Verify status, syntax, params
     int status = -1;
     if(num_args < 2) {
         printf("No evironment variable specified\n");

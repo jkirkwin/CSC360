@@ -24,4 +24,4 @@ ls shows "cannot access XXX : No such file or directory" where XXX is some strin
 or it shows "Bad address"
 
 
-if user enters control+d partway through a line, it doesnt terminate the program
+if user enters control+d partway through a line, it doesnt terminate the program. if the user presses it twice it does seem to.
