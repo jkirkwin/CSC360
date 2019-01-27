@@ -31,6 +31,7 @@ mapping_t mappings[] = {
     {"history\0", &builtin_history}
 };
 
+int interrupted = 0;
 int cid = 0;
 
 int main(int argc, char const *argv[]) {
@@ -98,18 +99,10 @@ void init() {
 
 void sig_handler(int s) {
     signal(s, SIG_IGN); // Ignore signal for the duration of the handler
-    if(s == SIGINT) {
-        #ifdef DEBUG
-            printf("Interrupt signal received.\n");
-        #endif
-        if(cid > 0) {
-            #ifdef DEBUG
-                printf("Killing child process\n");
-            #endif
-            kill(cid, SIGKILL);
-            cid = 0;
-        }
-
+    if(s == SIGINT && cid > 0) {
+        interrupted = 1;
+        kill(cid, SIGKILL);
+        cid = 0;
     }
     signal(s, sig_handler); // Re-instate handler
 }
@@ -338,7 +331,12 @@ int execute_binary(int num_args, char **args) {
     } else {
         // Store child id and wait for it to terminate
         cid = pid; 
-        wait(NULL); 
+        wait(NULL);
+        if(interrupted) {
+            printf("\n");
+            interrupted = 0;
+        }
+        cid = 0;
     }
     return 0;
 }

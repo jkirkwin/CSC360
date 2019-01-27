@@ -26,4 +26,4 @@ history.o : history.c history.h
 	gcc $(CFLAGS) -c history.c
 
 clean : 
-	rm -rf *.exe *.o kapish test_history test_kapish
+	rm -rf *.exe *.o kapish test_history test_kapish loop
