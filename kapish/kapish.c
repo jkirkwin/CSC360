@@ -32,6 +32,7 @@ mapping_t mappings[] = {
 };
 
 int cid = 0;
+int interrupted = 0;
 
 int main(int argc, char const *argv[]) {
     #ifdef DEBUG
@@ -96,20 +97,17 @@ void init() {
     printf("===============\n");
 }
 
+/*
+ * Kills child process if interrupt signal is given
+ */ 
 void sig_handler(int s) {
     signal(s, SIG_IGN); // Ignore signal for the duration of the handler
+    interrupted = 1;
     if(s == SIGINT) {
-        #ifdef DEBUG
-            printf("Interrupt signal received.\n");
-        #endif
         if(cid > 0) {
-            #ifdef DEBUG
-                printf("Killing child process\n");
-            #endif
             kill(cid, SIGKILL);
             cid = 0;
         }
-
     }
     signal(s, sig_handler); // Re-instate handler
 }
