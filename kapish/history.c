@@ -75,7 +75,11 @@ char *hist_get(int index) {
     if(!initialized || index > n-1 || index < 0) {
         return NULL;
     } else {
-        return stack[n-1-index];
+        char *match = stack[n-1-index];
+        char *copy = (char *) (malloc(sizeof(char) * (strlen(match) + 1)));
+        strncpy(copy, match, strlen(match));
+        copy[strlen(match)] = '\0';
+        return copy;
     }
 }
 
