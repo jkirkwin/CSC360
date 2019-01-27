@@ -135,16 +135,13 @@ int main_loop() {
         #endif
         status = execute(num_tokens, tokens);
 
-        // TODO Implement history builtin and ! functionality
+        // TODO ! functionality bug (ls)
         //
-        // TODO use .kapishrc to set terminal type (and hopefully more) in init
-        //      setenv TERM xxxx seems to be the syntax for this
         // TODO Run Valgrind and troubleshoot memory leaks
         // 
         // TODO Refactor execution functions to be void-returning?
         // 
-        // TODO Add a test suite in a separate file, testkapish.c, include commands to run the 
-        //      tests in the makefile
+        // TODO Write tests for kapish.c
         //        
         // TODO Prevent control+c from terminating kapish -> from the looks of it ^C interrupts 
         //      the process, likely just need a handler for this.
