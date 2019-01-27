@@ -24,4 +24,8 @@ A set of steps to reproduce:
 * ls shows "cannot access XXX : No such file or directory" where XXX is some string of garbage, or it shows "Bad address"
 * all other commands (echo, env, etc) fail with bad address too
 
+POSSIBLE CAUSE: Args array passed to execvp is not null terminated
+
+
+
 if user enters control+d partway through a line, it doesnt terminate the program. if the user presses it twice it does seem to.

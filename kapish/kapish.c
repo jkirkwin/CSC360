@@ -3,7 +3,7 @@
  * jkirkwin 
  * V00875987
  * CSC360 Assignment 1, Kapish Shell
- * Modified Jan 26, 2019
+ * Modified Jan 27, 2019
  */
 
 #include <stdio.h>
@@ -239,7 +239,7 @@ char* get_input_line(int *eof_flag, FILE *file) {
 
 /*
  * Tokenizes the string passed in, stores the number of tokens generated, and returns an array
- * of all tokens. Returns null if no tokens are found.
+ * of all tokens. Returns null if no tokens are found. Null terminates the array of tokens.
  */
 char** tokenize(char *str, int *num_tokens) {
     #define WHITESPACE_DELIM " \n\r\t\a"
@@ -274,20 +274,21 @@ char** tokenize(char *str, int *num_tokens) {
         tokens[tokens_stored++] = token; 
         token = strtok(NULL, WHITESPACE_DELIM);
     }
-    // Free up unused memory
+    // Free up unused memory and null terminate
     if(tokens_stored) {
         #ifdef DEBUG
             printf("Reallocating to free unused space. Tokens stored: %d\n", tokens_stored);
         #endif
-        tokens = realloc(tokens, tokens_stored*sizeof(char *));
+        tokens = realloc(tokens, (tokens_stored+1)*sizeof(char *));
         if(!tokens) {
             printf("Reallocation Failed in optimization for token storage\n");
             exit(3);
         }
+        tokens[tokens_stored] = NULL;
     } else {
         free(tokens);
         tokens = NULL;  
-    }   
+    }
     *num_tokens = tokens_stored;
     return tokens;
 } 
@@ -320,8 +321,6 @@ int execute_binary(int num_args, char **args) {
     #ifdef DEBUG
         printf("Attempting to execute process \'%s\'\n", args[0]);
     #endif
-    // TODO Check with Yvonne: Spec suggests we need to look through the PATH manually, 
-    //      but it seems like execvp will search for the command on its own
     int pid = fork();
     if(pid < 0) {
         perror("Fork failed: ");
