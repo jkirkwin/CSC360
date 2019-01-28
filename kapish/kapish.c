@@ -62,7 +62,7 @@ void init() {
 
     // Build filename string
     int len = strlen(CONFIG_NAME) + strlen(HOME) + 2;
-    char *filename = emalloc(sizeof(char) * len);
+    char *filename = emalloc(sizeof(char) * len); 
     strncpy(filename, HOME, len-2);
     strncat(filename, "/", len-2);
     strncat(filename, CONFIG_NAME, strlen(CONFIG_NAME));
@@ -85,6 +85,12 @@ void init() {
         free(tokens);
         free(config_line);
         config_line = get_input_line(&eof_flag, fileptr);
+    }
+    if(filename) {
+        free(filename);
+    }
+    if(config_line) {
+        free(config_line);
     }
     printf("Config Complete\n");
     printf("===============\n");
@@ -115,8 +121,11 @@ int main_loop() {
     while(0 == status) {
         printf("? ");
         eof_flag = 0;
-        input_line = get_input_line(&eof_flag, stdin);
+        input_line = get_input_line(&eof_flag, stdin); // TODO
         if(eof_flag) {
+            if(input_line) {
+                free(input_line);
+            }
             return 1;
         }
         if(input_line && strlen(input_line) > 0) {
@@ -148,16 +157,9 @@ int main_loop() {
         #endif
         status = execute(num_tokens, tokens);
 
-        // TODO ! functionality bug (ls)
-        //
         // TODO Run Valgrind and troubleshoot memory leaks
         // 
-        // TODO Refactor execution functions to be void-returning?
-        // 
         // TODO Write tests for kapish.c
-        //        
-        // TODO Prevent control+c from terminating kapish -> from the looks of it ^C interrupts 
-        //      the process, likely just need a handler for this.
 
         free(input_line);
         if(tokens) {
@@ -257,7 +259,7 @@ char** tokenize(char *str, int *num_tokens) {
                 printf("Reallocating. Tokens stored: %d, buffer size: %d\n", tokens_stored, buffer_size);
             #endif
             buffer_size = buffer_size + buffer_increment;
-            tokens = realloc(tokens, buffer_size*sizeof(char*));
+            tokens = realloc(tokens, buffer_size*sizeof(char*)); 
             if(!tokens) {
                 printf("Reallocation Failed during tokenization\n");
                 exit(3);
@@ -266,12 +268,12 @@ char** tokenize(char *str, int *num_tokens) {
         tokens[tokens_stored++] = token; 
         token = strtok(NULL, WHITESPACE_DELIM);
     }
-    // Free up unused memory and null terminate
+    // Free up unused memory and null terminate token array
     if(tokens_stored) {
         #ifdef DEBUG
             printf("Reallocating to free unused space. Tokens stored: %d\n", tokens_stored);
         #endif
-        tokens = realloc(tokens, (tokens_stored+1)*sizeof(char *));
+        tokens = realloc(tokens, (tokens_stored+1)*sizeof(char *)); 
         if(!tokens) {
             printf("Reallocation Failed in optimization for token storage\n");
             exit(3);
@@ -438,6 +440,7 @@ void terminate() {
         kill(cid, SIGKILL);
     }
     clear_hist();
+    printf("\nGoodbye\n");
 }
 
 
