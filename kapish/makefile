@@ -2,11 +2,6 @@ CFLAGS=-Wall -Werror
 
 default : kapish
 
-test : test_kapish test_history 
-
-test_kapish : kapish test_kapish.c
-	gcc test_kapish.c -o test_kapish
-
 test_history : test_history.c history.c history.h
 	gcc test_history.c history.c -o test_history
 

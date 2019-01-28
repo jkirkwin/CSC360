@@ -39,16 +39,9 @@ int main(int argc, char const *argv[]) {
         printf("Running in DEBUG mode\n");
         printf("=====================\n\n");
     #endif
-
-    // Initialize data structures and run config commands
     init();
-
-    // Loop until done
     main_loop();
-
-    // Do teardown/termination
-
-
+    terminate();
     return 0;
 }
 
@@ -124,7 +117,7 @@ int main_loop() {
         eof_flag = 0;
         input_line = get_input_line(&eof_flag, stdin);
         if(eof_flag) {
-            builtin_exit(0, NULL);
+            return 1;
         }
         if(input_line && strlen(input_line) > 0) {
             // Check for shebang and log the command in history stack
@@ -211,7 +204,6 @@ char* get_input_line(int *eof_flag, FILE *file) {
     char c;
     do {
         c = fgetc(file);
-        // c = getchar();
         if(chars > buffsize - 2) {
             // increase input_line memory
             buffsize = buffsize * 2;
@@ -323,12 +315,12 @@ int execute_binary(int num_args, char **args) {
     #endif
     int pid = fork();
     if(pid < 0) {
-        perror("Fork failed: ");
+        perror("Fork failed");
         return 0;
     }
     if(0 == pid) {
         execvp(args[0], &args[0]);
-        perror("Execution failed: ");
+        perror("Execution failed");
         return 1;
     } else {
         // Store child id and wait for it to terminate
@@ -347,9 +339,8 @@ int execute_binary(int num_args, char **args) {
  * Exit the shell
  */
 int builtin_exit(int num_args, char **args) {
-    // TODO Review this and add call to teardown() function if necessary  
     printf("\n");
-    exit(0);
+    return 1; // signal to break the main loop and terminate
 }
 
 /*
@@ -362,12 +353,12 @@ int builtin_cd(int num_args, char **args) {
         if(0 == status) {
             printf("%s\n", homedir);
         } else {
-            perror("Failed to change to Home dir: ");
+            perror("Failed to change to Home dir");
         }
     } else {
         int status = chdir(args[1]);
         if(status) {
-            perror("Failed to switch dir: ");
+            perror("Failed to switch dir");
         } else {
             int max_path_len = 200;
             char pathbuff[max_path_len + 1];
@@ -436,6 +427,17 @@ int builtin_history(int num_args, char **args) {
         }
     }
     return 0;
+}
+
+
+/*
+ * Free memory and kill child processes
+ */ 
+void terminate() {
+    if(cid > 0) {
+        kill(cid, SIGKILL);
+    }
+    clear_hist();
 }
 
 
