@@ -8,3 +8,6 @@ CSC 360 Assignent 1 - Kapish Shell
 * I implemented the history functionality and included a test suite for it (make test_history will give you the executable)
 * Used http://www.csl.mtu.edu/cs4411.ck/www/NOTES/signal/install.html to help understand signal handling for control-c functionality.
 * If user enters control+d partway through a line, it doesn't terminate the program. It should be treated simply as a shortcut for 'exit', not as a signal that can be sent at any time.
+
+## Bugs
+* All known bugs fixed
