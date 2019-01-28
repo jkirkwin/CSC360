@@ -92,6 +92,9 @@ void init() {
     if(config_line) {
         free(config_line);
     }
+    if(fileptr) {
+        free(fileptr);
+    }
     printf("Config Complete\n");
     printf("===============\n");
 }
