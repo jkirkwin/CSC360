@@ -18,6 +18,7 @@
 #include "history.h"
 
 #define BUILTINS 5
+
 typedef struct mapping {
     char *name;
     int (*handler)(int, char**);
@@ -31,7 +32,7 @@ mapping_t mappings[] = {
     {"history\0", &builtin_history}
 };
 
-int cid = 0;
+int cid = 0; // child id
 int interrupted = 0;
 
 int main(int argc, char const *argv[]) {
@@ -105,13 +106,16 @@ void init() {
 void sig_handler(int s) {
     signal(s, SIG_IGN); // Ignore signal for the duration of the handler
     if(s == SIGINT && cid > 0) {
-        interrupted = 1;
+        interrupted = 1; // Allows other code to handle the interruption
         kill(cid, SIGKILL);
         cid = 0;
     }
     signal(s, sig_handler); // Re-instate handler
 }
 
+/*
+ * Loop until user exits or system crashes (which shouldn't happen)
+ */ 
 int main_loop() {
     #ifdef DEBUG
         printf("Main loop entered\n");
@@ -124,7 +128,7 @@ int main_loop() {
     while(0 == status) {
         printf("? ");
         eof_flag = 0;
-        input_line = get_input_line(&eof_flag, stdin); // TODO
+        input_line = get_input_line(&eof_flag, stdin); 
         if(eof_flag) {
             if(input_line) {
                 free(input_line);
@@ -159,11 +163,6 @@ int main_loop() {
             printf("}\n");
         #endif
         status = execute(num_tokens, tokens);
-
-        // TODO Run Valgrind and troubleshoot memory leaks
-        // 
-        // TODO Write tests for kapish.c
-
         free(input_line);
         if(tokens) {
             free(tokens);
@@ -190,7 +189,7 @@ void chop(char *str) {
 }
 
 /* 
- * Get a line of input from stdin character-by-character to ensure we don't chop off the 
+ * Get a line of input character-by-character to ensure we don't chop off the 
  * end of the input as we might when using a buffer.
  * Strips any trailing whitespace from the string before returning it.
  * Sets the status flag if EOF was encountered, clears it if not.
@@ -210,7 +209,7 @@ char* get_input_line(int *eof_flag, FILE *file) {
     do {
         c = fgetc(file);
         if(chars > buffsize - 2) {
-            // increase input_line memory
+            // increase input_line capacity
             buffsize = buffsize * 2;
             input_line = (char *) realloc(input_line, buffsize);
             if(!input_line) {
@@ -293,8 +292,8 @@ char** tokenize(char *str, int *num_tokens) {
 /*
  * Execute the command given.
  * Checks for a built-in function matching args[0], otherwise (trys to) execute 
- * args[0] as a binary file via PATH
- * Return 0 if successful, non-0 otherwise.
+ * args[0] as a binary file via PATH search (actually done by execvp).
+ * Return non-0 on fatal error/exit command.
  */
 int execute(int num_args, char ** args) {
     if(0 == num_args || NULL == args || NULL == args[0]) {
@@ -311,8 +310,8 @@ int execute(int num_args, char ** args) {
 }
 
 /* 
- * Queries PATH (and ENV Variables?) to find the corresponding binary file
- * Returns 0 if process started successfully 
+ * Queries PATH (via execvp) to find the corresponding binary file
+ * and runs that command with any args specified
  */
 int execute_binary(int num_args, char **args) {
     #ifdef DEBUG
