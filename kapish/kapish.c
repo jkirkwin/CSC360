@@ -326,7 +326,7 @@ int execute_binary(int num_args, char **args) {
     if(0 == pid) {
         execvp(args[0], &args[0]);
         perror("Execution failed");
-        return 1;
+        return 0;
     } else {
         // Store child id and wait for it to terminate
         cid = pid; 
