@@ -8,6 +8,7 @@ CSC 360 Assignent 1 - Kapish Shell
 * I implemented the history functionality and included a test suite for it (make test_history will give you the executable)
 * Used http://www.csl.mtu.edu/cs4411.ck/www/NOTES/signal/install.html to help understand signal handling for control-c functionality.
 * If user enters control+d partway through a line, it doesn't terminate the program. It should be treated simply as a shortcut for 'exit', not as a signal that can be sent at any time.
+* Although the spec says that builtin commands should not write to stdout, I did allow them to do so for the sake of clarity. Without this, the user gets no feedback when environment variables are changed or the working directory changes.
 
 ## Bugs
 * All known bugs fixed
