@@ -5,6 +5,10 @@
 #include "uthread_mutex_cond.h"
 #include "spinlock.h"
 
+/*
+ * This file is for the producer/consumer problem using uthreads with spinlocks
+ */ 
+
 #define MAX_ITEMS 10
 const int NUM_ITERATIONS = 200;
 const int NUM_CONSUMERS  = 2;

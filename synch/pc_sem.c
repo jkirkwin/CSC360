@@ -4,6 +4,10 @@
 #include "uthread.h"
 #include "uthread_sem.h"
 
+/*
+ * This file is for the producer/consumer problem using uthreads with semaphores
+ */
+
 #define MAX_ITEMS 10
 const int NUM_ITERATIONS = 200;
 const int NUM_CONSUMERS  = 2;
