@@ -1,5 +1,5 @@
 /*
- * A stack for history command support in Kapish
+ * A stack of strings for history command support in Kapish
  */ 
 
 #include <stdlib.h>
@@ -107,6 +107,9 @@ int hist_size() {
     return n;
 }
 
+/*
+ * Empty and uninitialize the stack, free all memory used
+ */ 
 void clear_hist() {
     if(!initialized) {
         return;

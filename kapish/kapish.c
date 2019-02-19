@@ -452,7 +452,7 @@ void terminate() {
 void *emalloc(int size) {
     void *p = malloc(size);
     if(!p) {
-        printf("EMalloc Failed. Requested size: %d", size);
+        printf("Emalloc Failed. Requested size: %d", size);
         exit(1);
     }
     return p;
