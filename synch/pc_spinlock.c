@@ -10,7 +10,7 @@
  */ 
 
 #define MAX_ITEMS 10
-const int NUM_ITERATIONS = 200;
+const int NUM_ITERATIONS = 1; // TODO Set to a large number
 const int NUM_CONSUMERS  = 2;
 const int NUM_PRODUCERS  = 2;
 
@@ -20,43 +20,85 @@ int histogram [MAX_ITEMS+1]; // histogram [i] == # of times list stored i items
 
 int items = 0;
 
+spinlock_t lock;
+
 void* producer (void* v) {
   printf("Producer\n");
+  assert(0 <= items && items <= MAX_ITEMS);
+
   for (int i=0; i<NUM_ITERATIONS; i++) {
-    // TODO
-
-    // in here we want to increment <items> safely
-
-    // we also need to update producer_wait_count and histogram[whatever the new value is]
+    producer_wait_count++; 
+    while(items >= MAX_ITEMS);  // Wait/Spin
+    spinlock_lock(&lock);  // Aquire lock
+    if(items >= MAX_ITEMS) {  // Go back to waiting
+      spinlock_unlock(&lock);  
+      i--;
+      continue;
+    } else {  // Produce 
+      items++;
+      histogram[items]++;
+      spinlock_unlock(&lock);  
+    }
   }
+
+  assert(0 <= items && items <= MAX_ITEMS);
   return NULL;
 }
 
 void* consumer (void* v) {
   printf("Consumer\n");
+  assert(0 <= items && items <= MAX_ITEMS);
+  
   for (int i=0; i<NUM_ITERATIONS; i++) {
-    // TODO
+    consumer_wait_count++;
+    while(items <= 0); // Wait/Spin
+    spinlock_lock(&lock); // Aquire lock
+    if(items <= 0) { // Go back to waiting
+      spinlock_unlock(&lock);
+      i--;
+      continue;
 
-    // in here we want to decrement <items> safely
-
-    // we also need to update consumer_wait_count and histogram[whatever the new value is]
+    } else { // Consume
+      items--;
+      histogram[items]++;
+      spinlock_unlock(&lock);
+    }
   }
+  
+  assert(0 <= items && items <= MAX_ITEMS);
   return NULL;
 }
 
 int main (int argc, char** argv) {
-  uthread_t t[4];
-  uthread_init(4);
   
-  // TODO: Create Threads and Join
-  printf("Main\n");
-  uthread_t prod;
-  uthread_t cons;
-  prod = uthread_create(producer, NULL);
-  cons = uthread_create(consumer, NULL);
-  uthread_join(prod, NULL);
-  uthread_join(cons, NULL);
+  // Setup
+  uthread_t t[NUM_CONSUMERS + NUM_PRODUCERS];
+  uthread_init(4);
+  spinlock_create(&lock);
 
+  producer_wait_count = 0;
+  consumer_wait_count = 0;
+  int i;
+  histogram[0] = 1; // Items starts at 0
+  for(i = 1; i < MAX_ITEMS + 1; i++) {
+    histogram[i] = 0;
+  }
+
+  // Create Threads and Join
+  printf("Init done\n");
+  for(i = 0; i < NUM_PRODUCERS; i++) {
+    t[i] = uthread_create(producer, NULL);
+  }
+  for(i = NUM_PRODUCERS; i < NUM_CONSUMERS + NUM_PRODUCERS; i++) {
+    t[i] = uthread_create(consumer, NULL);
+  }
+  for(i = 0; i < NUM_CONSUMERS + NUM_PRODUCERS; i++) {
+    uthread_join(t[i], NULL);
+  }
+  
+
+  // Report/teardown
+  // TODO There doesn't appear to be a spinlock_destroy function()...
   printf ("producer_wait_count=%d\nconsumer_wait_count=%d\n", producer_wait_count, consumer_wait_count);
   printf ("items value histogram:\n");
   int sum=0;
