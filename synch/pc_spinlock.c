@@ -10,7 +10,7 @@
  */ 
 
 #define MAX_ITEMS 10
-const int NUM_ITERATIONS = 1; // TODO Set to a large number
+const int NUM_ITERATIONS = 200;
 const int NUM_CONSUMERS  = 2;
 const int NUM_PRODUCERS  = 2;
 
@@ -23,9 +23,7 @@ int items = 0;
 spinlock_t lock;
 
 void* producer (void* v) {
-  printf("Producer\n");
   assert(0 <= items && items <= MAX_ITEMS);
-
   for (int i=0; i<NUM_ITERATIONS; i++) {
     producer_wait_count++; 
     while(items >= MAX_ITEMS);  // Wait/Spin
@@ -46,7 +44,6 @@ void* producer (void* v) {
 }
 
 void* consumer (void* v) {
-  printf("Consumer\n");
   assert(0 <= items && items <= MAX_ITEMS);
   
   for (int i=0; i<NUM_ITERATIONS; i++) {
@@ -84,7 +81,6 @@ int main (int argc, char** argv) {
   }
 
   // Create Threads and Join
-  printf("Init done\n");
   for(i = 0; i < NUM_PRODUCERS; i++) {
     t[i] = uthread_create(producer, NULL);
   }
