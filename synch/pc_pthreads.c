@@ -6,6 +6,11 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+// TODO: BUG
+// Verified on windows, unverified on linux
+// When NUM_ITERATIONS is 6 with 2 consumers and 2 producers, we see that a consumer reports that 
+// it has consumed a vary large item which was never produced. This needs to be fixed!
+
 /*
  * This file is for the producer/consumer problem using p_threads with blocking
  *
@@ -13,7 +18,7 @@
  * and the lecture 12 slides to wrap my head around this. 
  */ 
 #define MAX_ITEMS 10
-const int NUM_ITERATIONS = 2;
+const int NUM_ITERATIONS = 6;
 const int NUM_CONSUMERS = 2;
 const int NUM_PRODUCERS = 2;
 
