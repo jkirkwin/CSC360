@@ -50,14 +50,14 @@ void* producer (void* v) {
     pthread_mutex_lock(&mutex);
     while(buff->occupied >= MAX_ITEMS) {
       pthread_cond_wait(&empty_slot, &mutex);
-      }
-      int item = produce_item();
-      buff->buffer[buff->produce_to_index] = item;
-      printf("produced item: %d to buffer[%d]\n", item, buff->produce_to_index);
-      buff->produce_to_index = (buff->produce_to_index + 1) % MAX_ITEMS;
-      buff->occupied++;
-      pthread_cond_signal(&full_slot);
-      pthread_mutex_unlock(&mutex);
+    }
+    int item = produce_item();
+    buff->buffer[buff->produce_to_index] = item;
+    printf("produced item: %d to buffer[%d]\n", item, buff->produce_to_index);
+    buff->produce_to_index = (buff->produce_to_index + 1) % MAX_ITEMS;
+    buff->occupied++;
+    pthread_cond_signal(&full_slot);
+    pthread_mutex_unlock(&mutex);
   }
   return NULL;
 }

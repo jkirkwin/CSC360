@@ -62,6 +62,7 @@ void* consumer (void* v) {
     items--;
     histogram[items]++;
     assert(0 <= items && items <= MAX_ITEMS);
+    uthread_cond_signal(empty_space);
     uthread_mutex_unlock(mutex);
   }
   assert(0 <= items && items <= MAX_ITEMS);
