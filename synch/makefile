@@ -1,5 +1,5 @@
 UTHREAD = .
-TARGETS = pc_spinlock pc_mutex_cond smoke pc_sem smoke_sem pc_pthreads
+TARGETS = pc_spinlock pc_mutex_cond smoke pc_sem smoke_sem pc_pthreads pc_mutex_cond_uthread
 
 OBJS = $(UTHREAD)/uthread.o $(UTHREAD)/uthread_mutex_cond.o $(UTHREAD)/uthread_sem.o
 JUNKF = $(OBJS) *~
