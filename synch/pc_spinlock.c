@@ -21,26 +21,42 @@ int histogram [MAX_ITEMS+1]; // histogram [i] == # of times list stored i items
 int items = 0;
 
 void* producer (void* v) {
+  printf("Producer\n");
   for (int i=0; i<NUM_ITERATIONS; i++) {
     // TODO
+
+    // in here we want to increment <items> safely
+
+    // we also need to update producer_wait_count and histogram[whatever the new value is]
   }
   return NULL;
 }
 
 void* consumer (void* v) {
+  printf("Consumer\n");
   for (int i=0; i<NUM_ITERATIONS; i++) {
     // TODO
+
+    // in here we want to decrement <items> safely
+
+    // we also need to update consumer_wait_count and histogram[whatever the new value is]
   }
   return NULL;
 }
 
 int main (int argc, char** argv) {
   uthread_t t[4];
-
-  uthread_init (4);
+  uthread_init(4);
   
   // TODO: Create Threads and Join
-  
+  printf("Main\n");
+  uthread_t prod;
+  uthread_t cons;
+  prod = uthread_create(producer, NULL);
+  cons = uthread_create(consumer, NULL);
+  uthread_join(prod, NULL);
+  uthread_join(cons, NULL);
+
   printf ("producer_wait_count=%d\nconsumer_wait_count=%d\n", producer_wait_count, consumer_wait_count);
   printf ("items value histogram:\n");
   int sum=0;
