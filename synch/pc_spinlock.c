@@ -79,8 +79,7 @@ int main (int argc, char** argv) {
   producer_wait_count = 0;
   consumer_wait_count = 0;
   int i;
-  histogram[0] = 1; // Items starts at 0
-  for(i = 1; i < MAX_ITEMS + 1; i++) {
+  for(i = 0; i < MAX_ITEMS + 1; i++) {
     histogram[i] = 0;
   }
 
