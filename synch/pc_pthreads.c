@@ -10,7 +10,7 @@
  * and the lecture 12 slides to wrap my head around this. 
  */ 
 #define MAX_ITEMS 10
-const int NUM_ITERATIONS = 6;
+const int NUM_ITERATIONS = 100;
 const int NUM_CONSUMERS = 2;
 const int NUM_PRODUCERS = 2;
 
