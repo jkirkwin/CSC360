@@ -103,14 +103,11 @@ int main() {
     exit(1);
   }
 
-  printf("Mutex, cond vars init complete\n");
-
   // Initialize buffer
   buff = emalloc(sizeof(buffer_t));
   buff->occupied = 0;
   buff->produce_to_index = 0;
   buff->consume_from_index = 0;
-  printf("Buffer init done\n");
 
   // Create and run the threads
   pthread_t consumers[NUM_CONSUMERS], producers[NUM_PRODUCERS];
