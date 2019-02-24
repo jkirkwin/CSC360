@@ -1,16 +1,8 @@
-// TODO Test this thoroughly
-
 #include <stdio.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdbool.h>
 
-// TODO: BUG
-// Verified on windows, unverified on linux
-// When NUM_ITERATIONS is 6 with 2 consumers and 2 producers, we see that a consumer reports that 
-// it has consumed a vary large item which was never produced. This needs to be fixed!
-// Verified that it occurs on linux too, but it prints 0 instead of a big int 
-// Likely culprit: buffer wraparownd or initialization has a logic error
 /*
  * This file is for the producer/consumer problem using p_threads with blocking
  *
@@ -80,8 +72,8 @@ void* consumer (void* v) {
       pthread_cond_wait(&full_slot, &mutex);
     }
     item = buff->buffer[buff->consume_from_index];
-    buff->consume_from_index = (buff->consume_from_index + 1) % MAX_ITEMS;
     printf("Consumed item: %d from buffer[%d]\n", item, buff->consume_from_index);
+    buff->consume_from_index = (buff->consume_from_index + 1) % MAX_ITEMS;
     buff->occupied--;
     pthread_cond_signal(&empty_slot);
     pthread_mutex_unlock(&mutex);
