@@ -10,13 +10,8 @@
  * mutexes and condition variables so that all waiting is now blocking
  */ 
 
-// TODO BUG
-// Deadlock occurs when we have num_iterations = 10, 2 for num[consumers/producers]
-// Sometimes happens for 6 iterations
-// Have not been able to re-produce with 5 iterations
-
 #define MAX_ITEMS 10
-const int NUM_ITERATIONS = 5;
+const int NUM_ITERATIONS = 200;
 const int NUM_CONSUMERS  = 2;
 const int NUM_PRODUCERS  = 2;
 
@@ -38,7 +33,6 @@ void* producer (void* v) {
       producer_wait_count++; // TODO verify that this is what they want 
       uthread_cond_wait(empty_space);
     }
-    printf("Producing item\n");
     items++;
     histogram[items]++;
     uthread_cond_signal(full_space);
@@ -58,7 +52,6 @@ void* consumer (void* v) {
       consumer_wait_count++;
       uthread_cond_wait(full_space);
     } 
-    printf("Consuming item\n");
     items--;
     histogram[items]++;
     assert(0 <= items && items <= MAX_ITEMS);
