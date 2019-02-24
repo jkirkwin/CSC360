@@ -1,4 +1,3 @@
-// TODO Add this to makefile
 // TODO Test this thoroughly
 
 #include <stdio.h>
@@ -10,7 +9,8 @@
 // Verified on windows, unverified on linux
 // When NUM_ITERATIONS is 6 with 2 consumers and 2 producers, we see that a consumer reports that 
 // it has consumed a vary large item which was never produced. This needs to be fixed!
-
+// Verified that it occurs on linux too, but it prints 0 instead of a big int 
+// Likely culprit: buffer wraparownd or initialization has a logic error
 /*
  * This file is for the producer/consumer problem using p_threads with blocking
  *
@@ -61,9 +61,9 @@ void* producer (void* v) {
       }
       int item = produce_item();
       buff->buffer[buff->produce_to_index] = item;
-      buff->produce_to_index = (buff->produce_to_index + 1 % MAX_ITEMS);
+      printf("produced item: %d to buffer[%d]\n", item, buff->produce_to_index);
+      buff->produce_to_index = (buff->produce_to_index + 1) % MAX_ITEMS;
       buff->occupied++;
-      printf("produced item: %d\n", item);
       pthread_cond_signal(&full_slot);
       pthread_mutex_unlock(&mutex);
   }
@@ -81,10 +81,10 @@ void* consumer (void* v) {
     }
     item = buff->buffer[buff->consume_from_index];
     buff->consume_from_index = (buff->consume_from_index + 1) % MAX_ITEMS;
+    printf("Consumed item: %d from buffer[%d]\n", item, buff->consume_from_index);
     buff->occupied--;
     pthread_cond_signal(&empty_slot);
     pthread_mutex_unlock(&mutex);
-    printf("Consumed item: %d\n", item);
   }
   return NULL;
 }
