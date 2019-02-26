@@ -87,6 +87,8 @@ int main (int argc, char** argv) {
   uthread_init (7);
   struct Agent*  a = createAgent();
   // TODO
+  
+  
   uthread_join (uthread_create (agent, a), 0);
   assert (signal_count [MATCH]   == smoke_count [MATCH]);
   assert (signal_count [PAPER]   == smoke_count [PAPER]);
@@ -94,4 +96,5 @@ int main (int argc, char** argv) {
   assert (smoke_count [MATCH] + smoke_count [PAPER] + smoke_count [TOBACCO] == NUM_ITERATIONS);
   printf ("Smoke counts: %d matches, %d paper, %d tobacco\n",
           smoke_count [MATCH], smoke_count [PAPER], smoke_count [TOBACCO]);
+
 }

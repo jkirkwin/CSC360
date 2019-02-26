@@ -40,7 +40,7 @@
 #include "uthread.h"
 #include "uthread_mutex_cond.h"
 
-#define NUM_ITERATIONS 1000
+#define NUM_ITERATIONS 1
 
 #ifdef VERBOSE
 #define VERBOSE_PRINT(S, ...) printf (S, ##__VA_ARGS__);
@@ -146,6 +146,7 @@ int paper_flag, match_flag, tobacco_flag;
 
 void paper_smoker(struct Agent *agent) {
   paper_flag = 0;
+  uthread_mutex_lock(agent->mutex); // To allow us to get into the loop and release immediately
   while(1) {
     // Give up lock once the thread is reset.
     // This way the agent can't go until all three have been reset (hopefully)
@@ -180,6 +181,7 @@ void paper_smoker(struct Agent *agent) {
 
 void match_smoker(struct Agent *agent) {
   match_flag = 0;
+  uthread_mutex_lock(agent->mutex); // To allow us to get into the loop and release immediately
   while(1) {
     // Give up lock once the thread is reset.
     // This way the agent can't go until all three have been reset (hopefully)
@@ -214,6 +216,7 @@ void match_smoker(struct Agent *agent) {
 
 void tobacco_smoker(struct Agent *agent) {
   tobacco_flag = 0;
+  uthread_mutex_lock(agent->mutex); // To allow us to get into the loop and release immediately
   while(1) {
     // Give up lock once the thread is reset.
     // This way the agent can't go until all three have been reset (hopefully)
@@ -328,15 +331,21 @@ void* smoker(void *arg) {
 }
 
 int main (int argc, char** argv) {
+  printf("Main started\n");
   uthread_init (7);
   struct Agent*  a = createAgent();
 
-  // uthread_t paper_smoker, matche_smoker, tobacco_smoker;
-  // paper_smoker = uthread_create(smoker, (void *) make_package(a, PAPER));
-  // matche_smoker = uthread_create(smoker, (void *) make_package(a, MATCH));
-  // tobacco_smoker = uthread_create(smoker, (void *) make_package(a, TOBACCO));
+  printf("Agent created\n");
+
+  uthread_t paper_smoker, matche_smoker, tobacco_smoker;
+  paper_smoker = uthread_create(smoker, (void *) make_package(a, PAPER));
+  matche_smoker = uthread_create(smoker, (void *) make_package(a, MATCH));
+  tobacco_smoker = uthread_create(smoker, (void *) make_package(a, TOBACCO));
 
   uthread_join (uthread_create (agent, a), 0);
+  
+  printf("Agent thread complete\n");
+  
   assert (signal_count [MATCH]   == smoke_count [MATCH]);
   assert (signal_count [PAPER]   == smoke_count [PAPER]);
   assert (signal_count [TOBACCO] == smoke_count [TOBACCO]);
