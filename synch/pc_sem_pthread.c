@@ -69,18 +69,18 @@ int main (int argc, char** argv) {
   }
 
   // Create and run the threads
-  pthread_t consumers[NUM_CONSUMERS], producers[NUM_PRODUCERS];
+  pthread_t t[NUM_CONSUMERS + NUM_PRODUCERS];
   int i;
   for(i = 0; i < NUM_PRODUCERS; i++) {
-    ret = pthread_create(&producers[i], NULL, producer, NULL);
+    ret = pthread_create(&t[i], NULL, producer, NULL);
     if(ret) {
         printf("Producers[%d] creation failed.\n", i);
         perror("Producer creation failed");
         exit(1);
     }
   }
-  for(i = 0; i < NUM_CONSUMERS; i++) {
-      ret = pthread_create(&consumers[i], NULL, consumer, NULL);
+  for(i = NUM_PRODUCERS; i < NUM_PRODUCERS + NUM_CONSUMERS; i++) {
+      ret = pthread_create(&t[i], NULL, consumer, NULL);
       if(ret) {
           printf("Consumers[%d] creation failed.\n", i);
           perror("Consumer creation failed");
@@ -89,11 +89,8 @@ int main (int argc, char** argv) {
   }
 
   // Join threads
-  for(i = 0; i < NUM_CONSUMERS; i++) {
-    pthread_join(consumers[i], NULL);
-  }
-  for(i = 0; i < NUM_PRODUCERS; i++) {
-    pthread_join(producers[i], NULL);
+  for(i = 0; i < NUM_CONSUMERS + NUM_PRODUCERS; i++) {
+    pthread_join(t[i], NULL);
   }
 
   // Destroy semaphores and mutex
