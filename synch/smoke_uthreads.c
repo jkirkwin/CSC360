@@ -68,9 +68,9 @@ void* agent (void* av) {
       
       printf("Starting agent loop\n");
       
-      uthread_mutex_lock(flag_mutex);
+      // uthread_mutex_lock(flag_mutex);
       flag = 0; // Added to assignment skeleton
-      uthread_mutex_unlock(flag_mutex);
+      // uthread_mutex_unlock(flag_mutex);
 
       printf("flag set to zero in agent\n");
 
@@ -79,14 +79,17 @@ void* agent (void* av) {
       int c = choices [r];
       if (c & MATCH) {
         VERBOSE_PRINT ("match available\n");
+        printf("\tagent signals match\n");
         uthread_cond_signal (a->match);
       }
       if (c & PAPER) {
         VERBOSE_PRINT ("paper available\n");
+        printf("\tagent signals paper\n");
         uthread_cond_signal (a->paper);
       }
       if (c & TOBACCO) {
         VERBOSE_PRINT ("tobacco available\n");
+        printf("\tagent signals tobacco\n");
         uthread_cond_signal (a->tobacco);
       }
       printf("agent waiting for smoke signal\n");
@@ -166,7 +169,7 @@ void* listener(void *p) {
   while(1) {
     printf("%s listener ready\n", rsrc_name);
     uthread_cond_wait(pkg->listen_for);
-    printf("%s listener woken up", rsrc_name);
+    printf("%s listener woken up\n", rsrc_name);
     // resource signalled by agent
     uthread_mutex_lock(flag_mutex);
     flag += pkg->resource;
@@ -194,7 +197,11 @@ int main (int argc, char** argv) {
   struct Agent*  a = createAgent();
 
   flag_mutex = uthread_mutex_create();
+  uthread_mutex_lock(flag_mutex);
   flag = 0;
+  printf("flag set to 0 in main\n");
+  uthread_mutex_unlock(flag_mutex);
+  printf("Locked and unlocked FLAG in main\n");
 
   wakeups[MATCH | TOBACCO] = uthread_cond_create(a->mutex);
   wakeups[MATCH | PAPER] = uthread_cond_create(a->mutex);
