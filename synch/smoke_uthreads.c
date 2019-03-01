@@ -32,7 +32,6 @@ struct Agent* createAgent() {
   return agent;
 }
 
-
 /**
  * You might find these declarations helpful.
  *   Note that Resource enum had values 1, 2 and 4 so you can combine resources;
@@ -44,29 +43,14 @@ char* resource_name [] = {"", "match",   "paper", "", "tobacco"};
 int signal_count [5];  // # of times resource signalled
 int smoke_count  [5];  // # of times smoker with resource smoked
 
+// lets us track resources (thread-safely)
+int flag; 
+uthread_mutex_t flag_mutex;
 
-/* 
- * A package containing the agent giving resources and the resource a smoker
- * has by default.
- */ 
-typedef struct Smoker_Package {
-  struct Agent *agent;
-  enum Resource resource;
-} package_t;
-
-/*
- * Helper function to create a new smoker package
- */ 
-// package_t* make_package(struct Agent *agent, enum Resource resource) {
-//   package_t *pkg = (package_t*)malloc(sizeof(package_t));
-//   if(!pkg) {
-//     perror("Malloc fail");
-//     exit(1);
-//   } 
-//   pkg->agent = agent;
-//   pkg->resource = resource;
-//   return pkg;
-// }
+// single cond vars for smokers to wait on. smoker with resource 1 waits
+// on wakeups[resource 2 | resource 3]
+// still uses the agent's mutex
+uthread_cond_t wakeups[5];
 
 /**
  * This is the agent procedure.  It is complete and you shouldn't change it in
@@ -81,6 +65,7 @@ void* agent (void* av) {
   
   uthread_mutex_lock (a->mutex);
     for (int i = 0; i < NUM_ITERATIONS; i++) {
+      flag = 0; // Added to assignment skeleton
       int r = random() % 3;
       signal_count [matching_smoker [r]] ++;
       int c = choices [r];
@@ -103,135 +88,142 @@ void* agent (void* av) {
   return NULL;
 }
 
-typedef struct Smoker_Pkg {
-  struct Agent * agent;
-  enum Resource resource;
-} smoker_package_t;
+// need 3 condition variables to be used to wakeup the 3 smokers
+// sum must be wiped at the start of every agent iteration
+// sum needs a mutex to protect it
+// each smoker needs a pointer one of these as well as to the agent so that they can signal smoke
+// smoker package should also contain a resource enum to let us print the resource name
 
-smoker_package_t* make_package(struct Agent* a, enum Resource r) {
-  smoker_package_t *pkg = (smoker_package_t *) malloc(sizeof(smoker_package_t));
+typedef struct Smoker_Package {
+  enum Resource resource;
+  uthread_cond_t wait_on;
+  struct Agent *agent;
+} smoker_pkg_t;
+
+typedef struct Listener_Package {
+  uthread_cond_t listen_for;
+  uthread_mutex_t mutex;
+  enum Resource resource;
+} listener_pkg_t;
+
+smoker_pkg_t* get_smoker_package(enum Resource r, uthread_cond_t wait_on, struct Agent *a) {
+  smoker_pkg_t *pkg = (smoker_pkg_t *) malloc(sizeof(smoker_pkg_t));
   if(!pkg) {
-    perror("malloc failed\n");
+    perror("Smoker pkg creation failed");
     exit(1);
   }
-  pkg->agent = a;
   pkg->resource = r;
+  pkg->wait_on = wait_on;
+  pkg->agent = a;
   return pkg;
-} 
+}
 
-uthread_mutex_t match_reset_mutex, paper_reset_mutex, tobacco_reset_mutex;
-int match_reset_flag, paper_reset_flag, tobacco_reset_flag;
-int success;
+listener_pkg_t* get_listener_package(uthread_cond_t listen, uthread_mutex_t m) {
+  listener_pkg_t *pkg = (listener_pkg_t *) malloc(sizeof(listener_pkg_t));
+  if(!pkg) {
+    perror("listener pkg creation failed");
+    exit(2);
+  }
+  pkg->listen_for = listen;
+  pkg->mutex = m;
+}
 
 void* smoker(void *p) {
-  package_t *pkg = (package_t *) p;
-  struct Agent *agent = pkg->agent;
-  enum Resource resource = pkg->resource;
-  
-  // TODO once we've verified that this approach works
-  
-  return NULL;
-} 
-
-void* match_smoker(void *a) {
-
-  struct Agent *agent = (struct Agent *) a;
-  uthread_mutex_lock(agent->mutex);
+  smoker_pkg_t *pkg = (smoker_pkg_t *) p;
+  pkg->agent;
+  uthread_mutex_lock(pkg->agent->mutex);
   while(1) {
-    // Lock must be held at the end of every iteration
-    
-    // Safely change reset flag to true before waiting on next agent iteration
-    uthread_mutex_lock(match_reset_mutex);
-    match_reset_flag = 1; // true
-    
-    // Next agent iteration is started. Change flag to indicate thread is not in the reset position.
-    uthread_cond_wait(agent->paper); // first resource required for success
-    uthread_mutex_lock(match_reset_mutex);
-    match_reset_flag = 0; // false
-    uthread_mutex_unlock(match_reset_mutex);
-
-    uthread_mutex_lock(agent->mutex);
-    
-    if(success) {
-      continue;
-    }
-    // // re-signal to allow others to move forward?
-    // // TODO examine how this will work with other threads
-    // uthread_cond_signal(agent->paper);
-
-    uthread_cond_wait(agent->tobacco); // second resource required for success
-    uthread_mutex_lock(agent->mutex);
-    if(!success) { // if no other smoker has succeeded on this agent iteration
-      // this smoker has now succeeded 
-
-      // ensure the other 2 threads reset by signalling all resources 
-      // in same order as agent
-      uthread_cond_signal(agent->match);
-      uthread_cond_signal(agent->paper);
-      uthread_cond_signal(agent->tobacco);
-
-      // busy wait until the other two threads reset
-      uthread_mutex_unlock(agent->mutex);
-      while(1) {
-        uthread_mutex_lock(tobacco_reset_mutex);
-        if(!tobacco_reset_flag) {
-          uthread_mutex_unlock(tobacco_reset_mutex);
-          continue;
-        }
-        uthread_mutex_unlock(tobacco_reset_mutex);
-
-        uthread_mutex_lock(paper_reset_mutex);
-        if(!paper_reset_flag) {
-          uthread_mutex_unlock(paper_reset_mutex);
-          continue;
-        }
-        uthread_mutex_unlock(paper_reset_mutex);
-
-        break;
-      }
-      uthread_mutex_lock(agent->mutex);
-      uthread_cond_signal(agent->smoke);
-      success = 0;
-    }
+    uthread_cond_wait(pkg->wait_on);
+    uthread_mutex_lock(pkg->agent->mutex);
+    uthread_cond_signal(pkg->agent->smoke);
+    smoke_count[pkg->resource]++; 
   }
+  uthread_mutex_unlock(pkg->agent->mutex); // better safe than deadlocked
   return NULL;
 }
 
-// add in wakeup condition variables for the 3 smokers
-// this will let you simplify the logic a little bit by extracting it from the smoker threads themselves.
-// also note that signal does not behave as you thought - signaling only wakes up to one thread, what you 
-// had thought was signalling functionality is actually how broadcast works.
+
+void* listener(void *p) {
+  listener_pkg_t *pkg = (listener_pkg_t*) p;
+
+  uthread_mutex_lock(pkg->mutex);
+  while(1) {
+
+    uthread_cond_wait(pkg->listen_for);
+    
+    // resource signalled by agent
+    uthread_mutex_lock(flag_mutex);
+    flag += pkg->resource;
+    // wake up the appropriate smoker if 2 signals have been recorded in flag
+    switch(flag) {
+      case MATCH + TOBACCO:
+        uthread_cond_signal(wakeups[MATCH | TOBACCO]);
+        break;
+      case PAPER + TOBACCO:
+        uthread_cond_signal(wakeups[PAPER | TOBACCO]);
+        break;
+      case PAPER + MATCH:
+        uthread_cond_signal(wakeups[PAPER | MATCH]);
+        break;
+    }
+    uthread_mutex_unlock(flag_mutex);
+  }
+  uthread_mutex_unlock(pkg->mutex); // I don't think this will ever execute, but better safe than deadlocked
+  return NULL;
+}
 
 int main (int argc, char** argv) {
   printf("Main started\n");
   uthread_init (7);
   struct Agent*  a = createAgent();
 
-  printf("Agent created\n");
+  flag = 0;
+  flag_mutex = uthread_mutex_create();
 
-  paper_reset_mutex = uthread_mutex_create();
-  match_reset_mutex = uthread_mutex_create();
-  tobacco_reset_mutex = uthread_mutex_create();
+  wakeups[MATCH | TOBACCO] = uthread_cond_create(a->mutex);
+  wakeups[MATCH | PAPER] = uthread_cond_create(a->mutex);
+  wakeups[PAPER | TOBACCO] = uthread_cond_create(a->mutex);
 
-  paper_reset_flag = 0;
-  match_reset_flag = 0;
-  tobacco_reset_flag = 0;
-  success = 0; 
+  // Start listener threads and wait until they are ready to go
+  listener_pkg_t *lp_match, *lp_paper, *lp_tobacco;
+  lp_match = get_listener_package(a->match, a->mutex);
+  lp_paper = get_listener_package(a->paper, a->mutex);
+  lp_tobacco = get_listener_package(a->tobacco, a->mutex);
 
-  printf("Reset Mutexes Created\n");
+  uthread_t match_listener, paper_listener, tobacco_listener;
+  match_listener = uthread_create(listener, lp_match);
+  paper_listener = uthread_create(listener, lp_paper);
+  tobacco_listener = uthread_create(listener, lp_tobacco);
+  sleep(2); // TODO add a global flag and mutex for the listeners to increment once they are ready to go instead of this
 
-  uthread_t p, m, t;
-  m = uthread_create(match_smoker, (void *) a);
-  // paper_smoker = uthread_create(smoker, (void *) make_package(a, PAPER));
-  // match_smoker = uthread_create(smoker, (void *) make_package(a, MATCH));
-  // tobacco_smoker = uthread_create(smoker, (void *) make_package(a, TOBACCO));
+  // Make smoker threads and wait until they are ready to go
+  smoker_pkg_t *sp_match, *sp_paper, *sp_tobacco;
+  sp_match = get_smoker_package(MATCH, wakeups[PAPER | TOBACCO], a); 
+  sp_paper = get_smoker_package(PAPER, wakeups[MATCH | TOBACCO], a); 
+  sp_tobacco = get_smoker_package(TOBACCO, wakeups[PAPER | MATCH], a); 
 
-  // TODO Busy wait until all 3 are reset before creatinging and joining the agent thread
+  uthread_t match_smoker, paper_smoker, tobacco_smoker;
+  match_smoker = uthread_create(smoker, sp_match);
+  paper_smoker = uthread_create(smoker, sp_paper);
+  tobacco_smoker = uthread_create(smoker, sp_tobacco);
+  sleep(3); // TODO add a global flag and mutex for smokers to increment once they are ready to go
 
   uthread_join (uthread_create (agent, a), 0);
+
+  // TODO teardown
+  uthread_mutex_destroy(flag_mutex);
   
-  printf("Agent thread complete\n");
+  uthread_mutex_destroy(a->mutex);
+
+  uthread_cond_destroy(a->match);
+  uthread_cond_destroy(a->tobacco);
+  uthread_cond_destroy(a->paper);
   
+  uthread_cond_destroy(wakeups[MATCH | TOBACCO]);
+  uthread_cond_destroy(wakeups[MATCH | PAPER]);
+  uthread_cond_destroy(wakeups[PAPER | TOBACCO]);
+
+  // Verify
   assert (signal_count [MATCH]   == smoke_count [MATCH]);
   assert (signal_count [PAPER]   == smoke_count [PAPER]);
   assert (signal_count [TOBACCO] == smoke_count [TOBACCO]);

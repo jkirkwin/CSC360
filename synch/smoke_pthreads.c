@@ -86,7 +86,9 @@ void* agent (void* av) {
 int main (int argc, char** argv) {
   uthread_init (7);
   struct Agent*  a = createAgent();
-  // TODO
+  
+  // TODO nothing has been done here
+  // need to init whatever cond variables, mutexes etc you need, create any structs, allocate any memory 
   
   
   uthread_join (uthread_create (agent, a), 0);
