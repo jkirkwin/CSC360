@@ -50,7 +50,7 @@ uthread_mutex_t flag_mutex;
 // single cond vars for smokers to wait on. smoker with resource 1 waits
 // on wakeups[resource 2 | resource 3]
 // still uses the agent's mutex
-uthread_cond_t wakeups[5];
+uthread_cond_t wakeups[10];
 
 /**
  * This is the agent procedure.  It is complete and you shouldn't change it in
@@ -176,13 +176,13 @@ void* listener(void *p) {
     // wake up the appropriate smoker if 2 signals have been recorded in flag
     switch(flag) {
       case MATCH + TOBACCO:
-        uthread_cond_signal(wakeups[MATCH | TOBACCO]);
+        uthread_cond_signal(wakeups[MATCH + TOBACCO]);
         break;
       case PAPER + TOBACCO:
-        uthread_cond_signal(wakeups[PAPER | TOBACCO]);
+        uthread_cond_signal(wakeups[PAPER + TOBACCO]);
         break;
       case PAPER + MATCH:
-        uthread_cond_signal(wakeups[PAPER | MATCH]);
+        uthread_cond_signal(wakeups[PAPER + MATCH]);
         break;
     }
     uthread_mutex_unlock(flag_mutex);
@@ -203,9 +203,9 @@ int main (int argc, char** argv) {
   uthread_mutex_unlock(flag_mutex);
   printf("Locked and unlocked FLAG in main\n");
 
-  wakeups[MATCH | TOBACCO] = uthread_cond_create(a->mutex);
-  wakeups[MATCH | PAPER] = uthread_cond_create(a->mutex);
-  wakeups[PAPER | TOBACCO] = uthread_cond_create(a->mutex);
+  wakeups[MATCH + TOBACCO] = uthread_cond_create(a->mutex);
+  wakeups[MATCH + PAPER] = uthread_cond_create(a->mutex);
+  wakeups[PAPER + TOBACCO] = uthread_cond_create(a->mutex);
 
   // Start listener threads and wait until they are ready to go
   listener_pkg_t *lp_match, *lp_paper, *lp_tobacco;
@@ -223,9 +223,9 @@ int main (int argc, char** argv) {
 
   // Make smoker threads and wait until they are ready to go
   smoker_pkg_t *sp_match, *sp_paper, *sp_tobacco;
-  sp_match = get_smoker_package(MATCH, wakeups[PAPER | TOBACCO], a); 
-  sp_paper = get_smoker_package(PAPER, wakeups[MATCH | TOBACCO], a); 
-  sp_tobacco = get_smoker_package(TOBACCO, wakeups[PAPER | MATCH], a); 
+  sp_match = get_smoker_package(MATCH, wakeups[PAPER + TOBACCO], a); 
+  sp_paper = get_smoker_package(PAPER, wakeups[MATCH + TOBACCO], a); 
+  sp_tobacco = get_smoker_package(TOBACCO, wakeups[PAPER + MATCH], a); 
 
   uthread_t match_smoker, paper_smoker, tobacco_smoker;
   match_smoker = uthread_create(smoker, sp_match);
@@ -246,9 +246,9 @@ int main (int argc, char** argv) {
   uthread_cond_destroy(a->tobacco);
   uthread_cond_destroy(a->paper);
   
-  uthread_cond_destroy(wakeups[MATCH | TOBACCO]);
-  uthread_cond_destroy(wakeups[MATCH | PAPER]);
-  uthread_cond_destroy(wakeups[PAPER | TOBACCO]);
+  uthread_cond_destroy(wakeups[MATCH + TOBACCO]);
+  uthread_cond_destroy(wakeups[MATCH + PAPER]);
+  uthread_cond_destroy(wakeups[PAPER + TOBACCO]);
 
   // Verify
   assert (signal_count [MATCH]   == smoke_count [MATCH]);
