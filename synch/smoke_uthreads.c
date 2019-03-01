@@ -172,7 +172,10 @@ void* listener(void *p) {
     uthread_cond_wait(pkg->listen_for);
     printf("%s listener woken up\n", rsrc_name);
     // resource signalled by agent
-    uthread_mutex_lock(flag_mutex);
+    uthread_mutex_lock(pkg->mutex);
+    printf("\tlistener got agent mutex lock\n");
+    //uthread_mutex_lock(flag_mutex);
+   // printf("\tlistener got flag mutex lock\n");
     flag += pkg->resource;
     // wake up the appropriate smoker if 2 signals have been recorded in flag
     switch(flag) {
@@ -186,7 +189,8 @@ void* listener(void *p) {
         uthread_cond_signal(wakeups[PAPER + MATCH]);
         break;
     }
-    uthread_mutex_unlock(flag_mutex);
+
+    //uthread_mutex_unlock(flag_mutex);
   }
   uthread_mutex_unlock(pkg->mutex); // I don't think this will ever execute, but better safe than deadlocked
   return NULL;
