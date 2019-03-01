@@ -65,7 +65,11 @@ void* agent (void* av) {
   
   uthread_mutex_lock (a->mutex);
     for (int i = 0; i < NUM_ITERATIONS; i++) {
+      
+      uthread_mutex_lock(flag_mutex);
       flag = 0; // Added to assignment skeleton
+      uthread_mutex_unlock(flag_mutex);
+
       int r = random() % 3;
       signal_count [matching_smoker [r]] ++;
       int c = choices [r];
@@ -130,14 +134,18 @@ listener_pkg_t* get_listener_package(uthread_cond_t listen, uthread_mutex_t m) {
 
 void* smoker(void *p) {
   smoker_pkg_t *pkg = (smoker_pkg_t *) p;
+  char * rsrc_name = resource_name[pkg->resource];
+  printf("%s smoker created\n", rsrc_name);
   pkg->agent;
   uthread_mutex_lock(pkg->agent->mutex);
   while(1) {
+    printf("%s smoker ready\n", rsrc_name);
     uthread_cond_wait(pkg->wait_on);
+    printf("%s smoker woken up\n", rsrc_name);
     uthread_mutex_lock(pkg->agent->mutex);
     uthread_cond_signal(pkg->agent->smoke);
     smoke_count[pkg->resource]++; 
-    printf("%s smoker smokes\n", resource_name[pkg->resource]);
+    printf("%s smoker smokes\n", rsrc_name);
   }
   uthread_mutex_unlock(pkg->agent->mutex); // better safe than deadlocked
   return NULL;
@@ -146,12 +154,14 @@ void* smoker(void *p) {
 
 void* listener(void *p) {
   listener_pkg_t *pkg = (listener_pkg_t*) p;
+  char * rsrc_name = resource_name[pkg->resource];
+  printf("%s listener started\n", rsrc_name);
 
   uthread_mutex_lock(pkg->mutex);
   while(1) {
-
+    printf("%s listener ready\n", rsrc_name);
     uthread_cond_wait(pkg->listen_for);
-    
+    printf("%s listener woken up", rsrc_name);
     // resource signalled by agent
     uthread_mutex_lock(flag_mutex);
     flag += pkg->resource;
@@ -178,8 +188,8 @@ int main (int argc, char** argv) {
   uthread_init (7);
   struct Agent*  a = createAgent();
 
-  flag = 0;
   flag_mutex = uthread_mutex_create();
+  flag = 0;
 
   wakeups[MATCH | TOBACCO] = uthread_cond_create(a->mutex);
   wakeups[MATCH | PAPER] = uthread_cond_create(a->mutex);
