@@ -130,7 +130,7 @@ smoker_pkg_t* get_smoker_package(enum Resource r, uthread_cond_t wait_on, struct
   return pkg;
 }
 
-listener_pkg_t* get_listener_package(uthread_cond_t listen, uthread_mutex_t m) {
+listener_pkg_t* get_listener_package(uthread_cond_t listen, uthread_mutex_t m, enum Resource r) {
   listener_pkg_t *pkg = (listener_pkg_t *) malloc(sizeof(listener_pkg_t));
   if(!pkg) {
     perror("listener pkg creation failed");
@@ -138,6 +138,7 @@ listener_pkg_t* get_listener_package(uthread_cond_t listen, uthread_mutex_t m) {
   }
   pkg->listen_for = listen;
   pkg->mutex = m;
+  pkg->resource = r;
 }
 
 void* smoker(void *p) {
@@ -209,9 +210,9 @@ int main (int argc, char** argv) {
 
   // Start listener threads and wait until they are ready to go
   listener_pkg_t *lp_match, *lp_paper, *lp_tobacco;
-  lp_match = get_listener_package(a->match, a->mutex);
-  lp_paper = get_listener_package(a->paper, a->mutex);
-  lp_tobacco = get_listener_package(a->tobacco, a->mutex);
+  lp_match = get_listener_package(MATCH, a->match, a->mutex);
+  lp_paper = get_listener_package(PAPER, a->paper, a->mutex);
+  lp_tobacco = get_listener_package(TOBACCO, a->tobacco, a->mutex);
 
   uthread_t match_listener, paper_listener, tobacco_listener;
   match_listener = uthread_create(listener, lp_match);
