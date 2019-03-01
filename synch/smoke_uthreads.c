@@ -137,6 +137,7 @@ void* smoker(void *p) {
     uthread_mutex_lock(pkg->agent->mutex);
     uthread_cond_signal(pkg->agent->smoke);
     smoke_count[pkg->resource]++; 
+    printf("%s smoker smokes\n", resource_name[pkg->resource]);
   }
   uthread_mutex_unlock(pkg->agent->mutex); // better safe than deadlocked
   return NULL;
