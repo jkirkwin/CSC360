@@ -65,10 +65,14 @@ void* agent (void* av) {
   printf("Agent thread running\n");
   uthread_mutex_lock (a->mutex);
     for (int i = 0; i < NUM_ITERATIONS; i++) {
+      
       printf("Starting agent loop\n");
+      
       uthread_mutex_lock(flag_mutex);
       flag = 0; // Added to assignment skeleton
       uthread_mutex_unlock(flag_mutex);
+
+      printf("flag set to zero in agent\n");
 
       int r = random() % 3;
       signal_count [matching_smoker [r]] ++;
@@ -85,6 +89,7 @@ void* agent (void* av) {
         VERBOSE_PRINT ("tobacco available\n");
         uthread_cond_signal (a->tobacco);
       }
+      printf("agent waiting for smoke signal\n");
       VERBOSE_PRINT ("agent is waiting for smoker to smoke\n");
       uthread_cond_wait (a->smoke);
     }
