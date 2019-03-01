@@ -130,7 +130,7 @@ smoker_pkg_t* get_smoker_package(enum Resource r, uthread_cond_t wait_on, struct
   return pkg;
 }
 
-listener_pkg_t* get_listener_package(uthread_cond_t listen, uthread_mutex_t m, enum Resource r) {
+listener_pkg_t* get_listener_package(enum Resource r, uthread_cond_t listen, uthread_mutex_t m) {
   listener_pkg_t *pkg = (listener_pkg_t *) malloc(sizeof(listener_pkg_t));
   if(!pkg) {
     perror("listener pkg creation failed");
