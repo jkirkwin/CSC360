@@ -62,10 +62,10 @@ void* agent (void* av) {
   struct Agent* a = av;
   static const int choices[]         = {MATCH|PAPER, MATCH|TOBACCO, PAPER|TOBACCO};
   static const int matching_smoker[] = {TOBACCO,     PAPER,         MATCH};
-  
+  printf("Agent thread running\n");
   uthread_mutex_lock (a->mutex);
     for (int i = 0; i < NUM_ITERATIONS; i++) {
-      
+      printf("Starting agent loop\n");
       uthread_mutex_lock(flag_mutex);
       flag = 0; // Added to assignment skeleton
       uthread_mutex_unlock(flag_mutex);
