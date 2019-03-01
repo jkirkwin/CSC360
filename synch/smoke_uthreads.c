@@ -1,37 +1,3 @@
-/*
- * 4 threads
- *    Agent - has infinite supply of all resources
- *    3 smokers - each has an infinite supply of 1 resource
- *              - each has a different resource
- * 3 Resources
- *    Tobacco
- *    Paper
- *    Matches
- * 
- * Smoker threads loop, attempting to smoke. To smoke they need one 
- * unit of the 2 resources they don't already have.
- * 
- * Agent loops, randomly choosing 2 resources to make available 
- * to the smokers. Use random() % 3 for this.
- * 
- * Each loop, one of the smokers should be able to smoke.
- * 
- * Agent can only communicate by signaling a resource is available 
- * via a condition variable
- * 
- * Smokers cannot ask the agent which resources it is currently providing.
- * 
- * Agent can't know which smokers have/need which resources
- * 
- * On each loop, agent must wait on a condition variable indicating a smoker
- * has succeeded
- * 
- * need a condition variable for each resource, signaled by the agent
- * 
- * need a condition variable for smoker threads to signal when they are
- * successful that wakes up the agent
- */ 
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
@@ -66,10 +32,6 @@ struct Agent* createAgent() {
   return agent;
 }
 
-//
-// TODO
-// You will probably need to add some procedures and struct etc.
-//
 
 /**
  * You might find these declarations helpful.
@@ -95,16 +57,16 @@ typedef struct Smoker_Package {
 /*
  * Helper function to create a new smoker package
  */ 
-package_t* make_package(struct Agent *agent, enum Resource resource) {
-  package_t *pkg = (package_t*)malloc(sizeof(package_t));
-  if(!pkg) {
-    perror("Malloc fail");
-    exit(1);
-  } 
-  pkg->agent = agent;
-  pkg->resource = resource;
-  return pkg;
-}
+// package_t* make_package(struct Agent *agent, enum Resource resource) {
+//   package_t *pkg = (package_t*)malloc(sizeof(package_t));
+//   if(!pkg) {
+//     perror("Malloc fail");
+//     exit(1);
+//   } 
+//   pkg->agent = agent;
+//   pkg->resource = resource;
+//   return pkg;
+// }
 
 /**
  * This is the agent procedure.  It is complete and you shouldn't change it in
@@ -141,194 +103,104 @@ void* agent (void* av) {
   return NULL;
 }
 
+typedef struct Smoker_Pkg {
+  struct Agent * agent;
+  enum Resource resource;
+} smoker_package_t;
 
-int paper_flag, match_flag, tobacco_flag;
+smoker_package_t* make_package(struct Agent* a, enum Resource r) {
+  smoker_package_t *pkg = (smoker_package_t *) malloc(sizeof(smoker_package_t));
+  if(!pkg) {
+    perror("malloc failed\n");
+    exit(1);
+  }
+  pkg->agent = a;
+  pkg->resource = r;
+  return pkg;
+} 
 
-void paper_smoker(struct Agent *agent) {
-  paper_flag = 0;
-  uthread_mutex_lock(agent->mutex); // To allow us to get into the loop and release immediately
+uthread_mutex_t match_reset_mutex, paper_reset_mutex, tobacco_reset_mutex;
+int match_reset_flag, paper_reset_flag, tobacco_reset_flag;
+int success;
+
+void* smoker(void *p) {
+  package_t *pkg = (package_t *) p;
+  struct Agent *agent = pkg->agent;
+  enum Resource resource = pkg->resource;
+  
+  // TODO once we've verified that this approach works
+  
+  return NULL;
+} 
+
+void* match_smoker(void *a) {
+
+  struct Agent *agent = (struct Agent *) a;
+  uthread_mutex_lock(agent->mutex);
   while(1) {
-    // Give up lock once the thread is reset.
-    // This way the agent can't go until all three have been reset (hopefully)
-    uthread_mutex_unlock(agent->mutex); 
-
-    uthread_cond_wait(agent->match); // these are in the order that the agent signals them
-    uthread_cond_wait(agent->tobacco); 
+    // Lock must be held at the end of every iteration
+    
+    // Safely change reset flag to true before waiting on next agent iteration
+    uthread_mutex_lock(match_reset_mutex);
+    match_reset_flag = 1; // true
+    
+    // Next agent iteration is started. Change flag to indicate thread is not in the reset position.
+    uthread_cond_wait(agent->paper); // first resource required for success
+    uthread_mutex_lock(match_reset_mutex);
+    match_reset_flag = 0; // false
+    uthread_mutex_unlock(match_reset_mutex);
 
     uthread_mutex_lock(agent->mutex);
     
-    // flag is set if another thread was able to smoke 
-    if(paper_flag) { 
+    if(success) {
       continue;
     }
+    // // re-signal to allow others to move forward?
+    // // TODO examine how this will work with other threads
+    // uthread_cond_signal(agent->paper);
 
-    // If we got here, it means that this is the thread that can smoke on this round
-    tobacco_flag = 1; // set flags to ensure other threads are reset before control is given back to agent
-    match_flag = 1;
-
-    // allow  the other two threads to reset and busy wait until this happens 
-    uthread_cond_signal(agent->match); // same order as agent
-    uthread_cond_signal(agent->paper);
-    uthread_cond_signal(agent->tobacco);
-    uthread_mutex_unlock(agent->mutex); 
-    while(tobacco_flag || match_flag);
-
-    uthread_mutex_lock(agent->mutex); // prevent agent from continuing until this thread has been reset too
-    uthread_cond_signal(agent->smoke);
-    paper_flag = 0;
-  }
-}
-
-void match_smoker(struct Agent *agent) {
-  match_flag = 0;
-  uthread_mutex_lock(agent->mutex); // To allow us to get into the loop and release immediately
-  while(1) {
-    // Give up lock once the thread is reset.
-    // This way the agent can't go until all three have been reset (hopefully)
-    uthread_mutex_unlock(agent->mutex); 
-
-    uthread_cond_wait(agent->paper); // these are in the order that the agent signals them
-    uthread_cond_wait(agent->tobacco); 
-
+    uthread_cond_wait(agent->tobacco); // second resource required for success
     uthread_mutex_lock(agent->mutex);
-    
-    // flag is set if another thread was able to smoke 
-    if(match_flag) { 
-      continue;
+    if(!success) { // if no other smoker has succeeded on this agent iteration
+      // this smoker has now succeeded 
+
+      // ensure the other 2 threads reset by signalling all resources 
+      // in same order as agent
+      uthread_cond_signal(agent->match);
+      uthread_cond_signal(agent->paper);
+      uthread_cond_signal(agent->tobacco);
+
+      // busy wait until the other two threads reset
+      uthread_mutex_unlock(agent->mutex);
+      while(1) {
+        uthread_mutex_lock(tobacco_reset_mutex);
+        if(!tobacco_reset_flag) {
+          uthread_mutex_unlock(tobacco_reset_mutex);
+          continue;
+        }
+        uthread_mutex_unlock(tobacco_reset_mutex);
+
+        uthread_mutex_lock(paper_reset_mutex);
+        if(!paper_reset_flag) {
+          uthread_mutex_unlock(paper_reset_mutex);
+          continue;
+        }
+        uthread_mutex_unlock(paper_reset_mutex);
+
+        break;
+      }
+      uthread_mutex_lock(agent->mutex);
+      uthread_cond_signal(agent->smoke);
+      success = 0;
     }
-
-    // If we got here, it means that this is the thread that can smoke on this round
-    tobacco_flag = 1; // set flags to ensure other threads are reset before control is given back to agent
-    paper_flag = 1;
-
-    // allow  the other two threads to reset and busy wait until this happens 
-    uthread_cond_signal(agent->match);  // same order as agent
-    uthread_cond_signal(agent->paper);
-    uthread_cond_signal(agent->tobacco);
-    uthread_mutex_unlock(agent->mutex); 
-    while(tobacco_flag || paper_flag);
-
-    uthread_mutex_lock(agent->mutex); // prevent agent from continuing until this thread has been reset too
-    uthread_cond_signal(agent->smoke);
-    match_flag = 0;
-  }
-}
-
-void tobacco_smoker(struct Agent *agent) {
-  tobacco_flag = 0;
-  uthread_mutex_lock(agent->mutex); // To allow us to get into the loop and release immediately
-  while(1) {
-    // Give up lock once the thread is reset.
-    // This way the agent can't go until all three have been reset (hopefully)
-    uthread_mutex_unlock(agent->mutex); 
-
-    uthread_cond_wait(agent->match);  // these are in the order that the agent signals them  
-    uthread_cond_wait(agent->paper);
-
-    uthread_mutex_lock(agent->mutex);
-    
-    // flag is set if another thread was able to smoke 
-    if(tobacco_flag) { 
-      continue;
-    }
-
-    // If we got here, it means that this is the thread that can smoke on this round
-    match_flag = 1; // set flags to ensure other threads are reset before control is given back to agent
-    paper_flag = 1;
-
-    // allow  the other two threads to reset and busy wait until this happens 
-    uthread_cond_signal(agent->match); // same order as agent
-    uthread_cond_signal(agent->paper);
-    uthread_cond_signal(agent->tobacco);
-    uthread_mutex_unlock(agent->mutex); 
-    while(match_flag || paper_flag);
-
-    uthread_mutex_lock(agent->mutex); // prevent agent from continuing until this thread has been reset too
-    uthread_cond_signal(agent->smoke);
-    tobacco_flag = 0;
-  }
-}
-
-/*
- * The procedure for a smoker thread. 
- * 
- * Initially I will write this for a smoker who has the paper resource but not the other 2.
- * If the solution is parameterizable, I will parameterize it. Otherwise I will rename this
- * to paper_smoker() and write tobacco_smoker() and matches_smoker(). Hopefully that doesn't happen.
- */ 
-void* smoker(void *arg) {
-  package_t *pkg = (package_t *) arg;
-  switch(pkg->resource) {
-    case PAPER:
-      paper_smoker(pkg->agent);
-      break;
-    case TOBACCO:
-      tobacco_smoker(pkg->agent);
-      break;
-    case MATCH:
-      match_smoker(pkg->agent);
-      break;
-
   }
   return NULL;
-  // need two condition variables to wait on.
-  // If both** are signaled, smoke.
-  // Otherwise, go back to waiting on both.
-
-  //idea - supposing the two cond vars are cond1, cond2
-  /*
-   
-    wait(cond1);
-    wait(cond2);
-    lock(mutex);
-    if(both resources available) {
-      smoke
-      release lock
-    } else {
-      release lock and continue
-    }
-    -------------------------
-
-    paper thread:
-      wait on tobacco
-      wait on matches
-
-    tobacco thread:
-      wait on paper
-      wait on matches
-
-    matches thread:
-      wait on tobacco
-      wait on paper
-
-
-    what if smokers could communicate?
-
-    as we have it now, all 3 smokers will wake up from one of the waits, but only one will actually get past both.
-    what if the successful smoker could cause the other two to be reset?
-
-    wait(cond1);
-    wait(cond2);
-    lock(mutex);
-    if(need to reset) {
-      continue
-    }
-
-    need a way to tell if wait-wakeups happened from the same batch of signals
-
-
-   */
-
-  // Continue until agent stops providing resources
-  // while(1) {
-    // wait on two condition variables?
-    // alternatively we could create 3 additional threads to handle each smoker, but we need the same logic either way it seems to me.
-
-    // TODO ensure this only happens when smoker can get all 3 resources
-    // uthread_cond_signal(/*todo*/)
-
-  // }
 }
+
+// add in wakeup condition variables for the 3 smokers
+// this will let you simplify the logic a little bit by extracting it from the smoker threads themselves.
+// also note that signal does not behave as you thought - signaling only wakes up to one thread, what you 
+// had thought was signalling functionality is actually how broadcast works.
 
 int main (int argc, char** argv) {
   printf("Main started\n");
@@ -337,10 +209,24 @@ int main (int argc, char** argv) {
 
   printf("Agent created\n");
 
-  uthread_t paper_smoker, matche_smoker, tobacco_smoker;
-  paper_smoker = uthread_create(smoker, (void *) make_package(a, PAPER));
-  matche_smoker = uthread_create(smoker, (void *) make_package(a, MATCH));
-  tobacco_smoker = uthread_create(smoker, (void *) make_package(a, TOBACCO));
+  paper_reset_mutex = uthread_mutex_create();
+  match_reset_mutex = uthread_mutex_create();
+  tobacco_reset_mutex = uthread_mutex_create();
+
+  paper_reset_flag = 0;
+  match_reset_flag = 0;
+  tobacco_reset_flag = 0;
+  success = 0; 
+
+  printf("Reset Mutexes Created\n");
+
+  uthread_t p, m, t;
+  m = uthread_create(match_smoker, (void *) a);
+  // paper_smoker = uthread_create(smoker, (void *) make_package(a, PAPER));
+  // match_smoker = uthread_create(smoker, (void *) make_package(a, MATCH));
+  // tobacco_smoker = uthread_create(smoker, (void *) make_package(a, TOBACCO));
+
+  // TODO Busy wait until all 3 are reset before creatinging and joining the agent thread
 
   uthread_join (uthread_create (agent, a), 0);
   
