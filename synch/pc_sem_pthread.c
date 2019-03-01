@@ -27,7 +27,7 @@ void* producer (void* v) {
     sem_wait(&empty_space);
     pthread_mutex_lock(&mutex);
     items++;
-    printf("Producing. Items = %d\n", items);
+    printf("Producing --- Items = %d\n", items);
     histogram[items]++;
     pthread_mutex_unlock(&mutex);
     sem_post(&full_space);
@@ -40,7 +40,7 @@ void* consumer (void* v) {
     sem_wait(&full_space);
     pthread_mutex_lock(&mutex);
     items--;
-    printf("Consuming. Items = %d\n", items);
+    printf("Consuming - Items = %d\n", items);
     histogram[items]++;
     pthread_mutex_unlock(&mutex);
     sem_post(&empty_space);
