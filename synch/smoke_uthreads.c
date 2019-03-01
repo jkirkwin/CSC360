@@ -207,6 +207,8 @@ int main (int argc, char** argv) {
   tobacco_listener = uthread_create(listener, lp_tobacco);
   sleep(2); // TODO add a global flag and mutex for the listeners to increment once they are ready to go instead of this
 
+  printf("listener threads created in main\n");
+
   // Make smoker threads and wait until they are ready to go
   smoker_pkg_t *sp_match, *sp_paper, *sp_tobacco;
   sp_match = get_smoker_package(MATCH, wakeups[PAPER | TOBACCO], a); 
@@ -218,6 +220,8 @@ int main (int argc, char** argv) {
   paper_smoker = uthread_create(smoker, sp_paper);
   tobacco_smoker = uthread_create(smoker, sp_tobacco);
   sleep(3); // TODO add a global flag and mutex for smokers to increment once they are ready to go
+
+  printf("smoker threads created in main\n");
 
   uthread_join (uthread_create (agent, a), 0);
 
