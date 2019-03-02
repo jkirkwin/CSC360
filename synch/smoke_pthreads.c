@@ -159,7 +159,9 @@ void* match_smoker(void *a) {
   struct Agent *agent = (struct Agent *) a;
   pthread_mutex_lock(&(agent->mutex));
   while(1) {
+    VERBOSE_PRINT("Match smoker ready\n");
     pthread_cond_wait(&wakeup_match, &(agent->mutex));
+    VERBOSE_PRINT("Match smoker SMOKING\n");
     pthread_cond_signal(&(agent->smoke));
     smoke_count[MATCH]++;
   }
@@ -170,7 +172,9 @@ void* paper_smoker(void *a) {
   struct Agent *agent = (struct Agent *) a;
   pthread_mutex_lock(&(agent->mutex));
   while(1) {
+    VERBOSE_PRINT("Paper smoker ready\n");
     pthread_cond_wait(&wakeup_paper, &(agent->mutex));
+    VERBOSE_PRINT("Paper smoker SMOKING\n");
     pthread_cond_signal(&(agent->smoke));
     smoke_count[PAPER]++;
   }
@@ -181,26 +185,26 @@ void* tobacco_smoker(void *a) {
   struct Agent *agent = (struct Agent *) a;
   pthread_mutex_lock(&(agent->mutex));
   while(1) {
+    VERBOSE_PRINT("Tobacco smoker ready\n");
     pthread_cond_wait(&wakeup_tobacco, &(agent->mutex));
+    VERBOSE_PRINT("Tobacco smoker SMOKING\n");
     pthread_cond_signal(&(agent->smoke));
     smoke_count[PAPER]++;
   }
 }
 
-int main (int argc, char** argv) {
-  VERBOSE_PRINT("---\n");
-    
+int main (int argc, char** argv) {  
   struct Agent*  a = createAgent();
   flag = 0;
   
-  VERBOSE_PRINT("Main started\n");
+  VERBOSE_PRINT("MAIN STARTED\n");
 
   // Init wakeup cond vars
   pthread_cond_init(&wakeup_match, NULL);
   pthread_cond_init(&wakeup_paper, NULL);
   pthread_cond_init(&wakeup_tobacco, NULL);
 
-  VERBOSE_PRINT("Wakeups initialized\n");
+  VERBOSE_PRINT("WAKEUPS INITIALIZED\n");
   
   pthread_t agent_pt;
   pthread_t match_smoker_pt, paper_smoker_pt, tobacco_smoker_pt; 
@@ -211,7 +215,8 @@ int main (int argc, char** argv) {
   pthread_create(&paper_smoker_pt, NULL, paper_smoker, a);
   pthread_create(&tobacco_smoker_pt, NULL, tobacco_smoker, a);
   
-  VERBOSE_PRINT("Smoker threads created\n");
+  VERBOSE_PRINT("SMOKER THREADS CREATED\n");
+
   // TODO ensure smokers have started the loop (i.e. are waiting)
 
 
@@ -220,8 +225,10 @@ int main (int argc, char** argv) {
   pthread_create(&paper_listener_pt, NULL, paper_listener, a);
   pthread_create(&tobacco_listener_pt, NULL, tobacco_listener, a);
   
-  VERBOSE_PRINT("Listener threads created\n");
+  VERBOSE_PRINT("LISTENER THREADS CREATED\n");
+
   // TODO ensure listeners have started the loop (i.e. are waiting)
+
 
   // Create agent and join it
   VERBOSE_PRINT("Creating agent thread\n");
