@@ -59,7 +59,7 @@ int smoke_count  [5];  // # of times smoker with resource smoked
 
 int flag;
 
-pthread_cond_t *wakeup_match, *wakeup_paper, *wakeup_tobacco;
+pthread_cond_t wakeup_match, wakeup_paper, wakeup_tobacco;
 
 /**
  * This is the agent procedure.  It is complete and you shouldn't change it in
@@ -99,17 +99,17 @@ void* agent (void* av) {
 void check_flag() {
   switch(flag) {
     case MATCH + PAPER:
-      pthread_cond_signal(wakeup_tobacco);
+      pthread_cond_signal(&wakeup_tobacco);
       flag = 0;
       break;
 
     case MATCH + TOBACCO:
-      pthread_cond_signal(wakeup_paper);
+      pthread_cond_signal(&wakeup_paper);
       flag = 0;
       break;
 
     case PAPER + TOBACCO:
-      pthread_cond_signal(wakeup_match);
+      pthread_cond_signal(&wakeup_match);
       flag = 0;
       break;
   }
@@ -159,7 +159,7 @@ void* match_smoker(void *a) {
   struct Agent *agent = (struct Agent *) a;
   pthread_mutex_lock(&(agent->mutex));
   while(1) {
-    pthread_cond_wait(wakeup_match, &(agent->mutex));
+    pthread_cond_wait(&wakeup_match, &(agent->mutex));
     pthread_cond_signal(&(agent->smoke));
     smoke_count[MATCH]++;
   }
@@ -170,7 +170,7 @@ void* paper_smoker(void *a) {
   struct Agent *agent = (struct Agent *) a;
   pthread_mutex_lock(&(agent->mutex));
   while(1) {
-    pthread_cond_wait(wakeup_paper, &(agent->mutex));
+    pthread_cond_wait(&wakeup_paper, &(agent->mutex));
     pthread_cond_signal(&(agent->smoke));
     smoke_count[PAPER]++;
   }
@@ -181,7 +181,7 @@ void* tobacco_smoker(void *a) {
   struct Agent *agent = (struct Agent *) a;
   pthread_mutex_lock(&(agent->mutex));
   while(1) {
-    pthread_cond_wait(wakeup_tobacco, &(agent->mutex));
+    pthread_cond_wait(&wakeup_tobacco, &(agent->mutex));
     pthread_cond_signal(&(agent->smoke));
     smoke_count[PAPER]++;
   }
@@ -197,21 +197,9 @@ int main (int argc, char** argv) {
   VERBOSE_PRINT("Main started\n");
 
   // Init wakeup cond vars
-  ret = pthread_cond_init(wakeup_match, NULL);
-  if(!ret) {
-    perror("match wakeup condition variable creation failed\n");
-    exit(1);
-  }
-  ret = pthread_cond_init(wakeup_paper, NULL);
-  if(!ret) {
-    perror("paper wakeup condition variable creation failed\n");
-    exit(1);
-  }
-  ret = pthread_cond_init(wakeup_tobacco, NULL);
-  if(!ret) {
-    perror("tobacco wakeup condition variable creation failed\n");
-    exit(1);
-  }
+  pthread_cond_init(&wakeup_match, NULL);
+  pthread_cond_init(&wakeup_paper, NULL);
+  pthread_cond_init(&wakeup_tobacco, NULL);
 
   VERBOSE_PRINT("Wakeups initialized\n");
   
@@ -274,9 +262,9 @@ int main (int argc, char** argv) {
   pthread_cond_destroy(&(a->paper));
   pthread_cond_destroy(&(a->smoke));  
   free(a);
-  pthread_cond_destroy(wakeup_match);
-  pthread_cond_destroy(wakeup_paper);
-  pthread_cond_destroy(wakeup_tobacco);
+  pthread_cond_destroy(&wakeup_match);
+  pthread_cond_destroy(&wakeup_paper);
+  pthread_cond_destroy(&wakeup_tobacco);
 
   assert (signal_count [MATCH]   == smoke_count [MATCH]);
   assert (signal_count [PAPER]   == smoke_count [PAPER]);
