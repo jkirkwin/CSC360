@@ -24,25 +24,20 @@ void * emalloc(size_t size) {
 }
 
 struct Agent {
-  pthread_mutex_t *mutex;
-  pthread_cond_t *match;
-  pthread_cond_t *paper;
-  pthread_cond_t *tobacco;
-  pthread_cond_t *smoke;
+  pthread_mutex_t mutex;
+  pthread_cond_t match;
+  pthread_cond_t paper;
+  pthread_cond_t tobacco;
+  pthread_cond_t smoke;
 };
 
 struct Agent* createAgent() {
   struct Agent *agent = emalloc (sizeof (struct Agent));
-  agent->mutex = (pthread_mutex_t *) emalloc(sizeof(pthread_mutex_t));
-  agent->match = (pthread_cond_t *) emalloc(sizeof(pthread_cond_t));
-  agent->paper = (pthread_cond_t *) emalloc(sizeof(pthread_cond_t));
-  agent->tobacco = (pthread_cond_t *) emalloc(sizeof(pthread_cond_t));
-
-  pthread_mutex_init(agent->mutex, NULL);
-  pthread_cond_init(agent->paper, NULL);
-  pthread_cond_init(agent->match, NULL);
-  pthread_cond_init(agent->tobacco, NULL);
-  pthread_cond_init(agent->smoke, NULL);
+  pthread_mutex_init(&(agent->mutex), NULL);
+  pthread_cond_init(&(agent->paper), NULL);
+  pthread_cond_init(&(agent->match), NULL);
+  pthread_cond_init(&(agent->tobacco), NULL);
+  pthread_cond_init(&(agent->smoke), NULL);
   return agent;
 }
 
@@ -77,27 +72,27 @@ void* agent (void* av) {
   static const int choices[]         = {MATCH|PAPER, MATCH|TOBACCO, PAPER|TOBACCO};
   static const int matching_smoker[] = {TOBACCO,     PAPER,         MATCH};
   
-  pthread_mutex_lock (a->mutex);
+  pthread_mutex_lock (&(a->mutex));
     for (int i = 0; i < NUM_ITERATIONS; i++) {
       int r = random() % 3;
       signal_count [matching_smoker [r]] ++;
       int c = choices [r];
       if (c & MATCH) {
         VERBOSE_PRINT ("match available\n");
-        pthread_cond_signal (a->match);
+        pthread_cond_signal (&(a->match));
       }
       if (c & PAPER) {
         VERBOSE_PRINT ("paper available\n");
-        pthread_cond_signal (a->paper);
+        pthread_cond_signal (&(a->paper));
       }
       if (c & TOBACCO) {
         VERBOSE_PRINT ("tobacco available\n");
-        pthread_cond_signal (a->tobacco);
+        pthread_cond_signal (&(a->tobacco));
       }
       VERBOSE_PRINT ("agent is waiting for smoker to smoke\n");
-      pthread_cond_wait (a->smoke, a->mutex);
+      pthread_cond_wait (&(a->smoke), &(a->mutex));
     }
-  pthread_mutex_unlock (a->mutex);
+  pthread_mutex_unlock (&(a->mutex));
   return NULL;
 }
 
@@ -123,10 +118,10 @@ void check_flag() {
 void* match_listener(void *a) {
   VERBOSE_PRINT("Match listener running\n");
   struct Agent *agent = (struct Agent *) a;
-  pthread_mutex_lock(agent->mutex);
+  pthread_mutex_lock(&(agent->mutex));
   while(1) {
     VERBOSE_PRINT("Match listener ready\n");
-    pthread_cond_wait(agent->match, agent->mutex);
+    pthread_cond_wait(&(agent->match), &(agent->mutex));
     VERBOSE_PRINT("Match listener woken up\n");
     flag += MATCH;
     check_flag();
@@ -136,10 +131,10 @@ void* match_listener(void *a) {
 void* paper_listener(void *a) {
   VERBOSE_PRINT("Paper listener running\n");
   struct Agent *agent = (struct Agent *) a;
-  pthread_mutex_lock(agent->mutex);
+  pthread_mutex_lock(&(agent->mutex));
   while(1) {
     VERBOSE_PRINT("Paper listener ready\n");
-    pthread_cond_wait(agent->paper, agent->mutex);
+    pthread_cond_wait(&(agent->paper), &(agent->mutex));
     VERBOSE_PRINT("Paper listener woken up\n");
     flag += PAPER;
     check_flag();
@@ -149,10 +144,10 @@ void* paper_listener(void *a) {
 void* tobacco_listener(void *a) {
   VERBOSE_PRINT("Tobacco listener running\n");
   struct Agent *agent = (struct Agent *) a;
-  pthread_mutex_lock(agent->mutex);
+  pthread_mutex_lock(&(agent->mutex));
   while(1) {
     VERBOSE_PRINT("Tobacco listener ready\n");
-    pthread_cond_wait(agent->tobacco, agent->mutex);
+    pthread_cond_wait(&(agent->tobacco), &(agent->mutex));
     VERBOSE_PRINT("Tobacco listener woken up\n");
     flag += TOBACCO;
     check_flag();
@@ -162,10 +157,10 @@ void* tobacco_listener(void *a) {
 void* match_smoker(void *a) {
   VERBOSE_PRINT("Match smoker running\n");
   struct Agent *agent = (struct Agent *) a;
-  pthread_mutex_lock(agent->mutex);
+  pthread_mutex_lock(&(agent->mutex));
   while(1) {
-    pthread_cond_wait(wakeup_match, agent->mutex);
-    pthread_cond_signal(agent->smoke);
+    pthread_cond_wait(wakeup_match, &(agent->mutex));
+    pthread_cond_signal(&(agent->smoke));
     smoke_count[MATCH]++;
   }
 }
@@ -173,10 +168,10 @@ void* match_smoker(void *a) {
 void* paper_smoker(void *a) {
   VERBOSE_PRINT("Paper smoker running\n");
   struct Agent *agent = (struct Agent *) a;
-  pthread_mutex_lock(agent->mutex);
+  pthread_mutex_lock(&(agent->mutex));
   while(1) {
-    pthread_cond_wait(wakeup_paper, agent->mutex);
-    pthread_cond_signal(agent->smoke);
+    pthread_cond_wait(wakeup_paper, &(agent->mutex));
+    pthread_cond_signal(&(agent->smoke));
     smoke_count[PAPER]++;
   }
 }
@@ -184,10 +179,10 @@ void* paper_smoker(void *a) {
 void* tobacco_smoker(void *a) {
   VERBOSE_PRINT("Tobacco smoker running\n");
   struct Agent *agent = (struct Agent *) a;
-  pthread_mutex_lock(agent->mutex);
+  pthread_mutex_lock(&(agent->mutex));
   while(1) {
-    pthread_cond_wait(wakeup_tobacco, agent->mutex);
-    pthread_cond_signal(agent->smoke);
+    pthread_cond_wait(wakeup_tobacco, &(agent->mutex));
+    pthread_cond_signal(&(agent->smoke));
     smoke_count[PAPER]++;
   }
 }
@@ -273,11 +268,11 @@ int main (int argc, char** argv) {
   pthread_join(agent_pt, NULL);
 
   // Teardown
-  pthread_mutex_destroy(a->mutex);
-  pthread_cond_destroy(a->match);  
-  pthread_cond_destroy(a->tobacco);
-  pthread_cond_destroy(a->paper);
-  pthread_cond_destroy(a->smoke);  
+  pthread_mutex_destroy(&(a->mutex));
+  pthread_cond_destroy(&(a->match));  
+  pthread_cond_destroy(&(a->tobacco));
+  pthread_cond_destroy(&(a->paper));
+  pthread_cond_destroy(&(a->smoke));  
   free(a);
   pthread_cond_destroy(wakeup_match);
   pthread_cond_destroy(wakeup_paper);
