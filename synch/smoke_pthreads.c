@@ -40,11 +40,6 @@ struct Agent* createAgent() {
   return agent;
 }
 
-//
-// TODO
-// You will probably need to add some procedures and struct etc.
-//
-
 /**
  * You might find these declarations helpful.
  *   Note that Resource enum had values 1, 2 and 4 so you can combine resources;
@@ -216,7 +211,8 @@ int main (int argc, char** argv) {
   
   VERBOSE_PRINT("SMOKER THREADS CREATED\n");
 
-  // TODO ensure smokers have started the loop (i.e. are waiting)
+  // TODO ensure smokers have started the loop (i.e. are waiting) in a more reliable way
+  sleep(1);
 
 
   // Create listeners
@@ -226,8 +222,8 @@ int main (int argc, char** argv) {
   
   VERBOSE_PRINT("LISTENER THREADS CREATED\n");
 
-  // TODO ensure listeners have started the loop (i.e. are waiting)
-
+  // TODO ensure listeners have started the loop (i.e. are waiting) in a more reliable way
+  sleep(1);
 
   // Create agent and join it
   VERBOSE_PRINT("CREATING AGENT THREAD\n");
