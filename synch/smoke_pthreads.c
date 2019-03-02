@@ -14,6 +14,15 @@
 // #define VERBOSE_PRINT(S, ...) ;
 // #endif
 
+void * emalloc(size_t size) {
+    void * ptr = malloc(size);
+    if(!ptr) {
+        perror("emalloc failed");
+        exit(1);
+    return ptr;
+    }
+}
+
 struct Agent {
   pthread_mutex_t *mutex;
   pthread_cond_t *match;
@@ -23,7 +32,12 @@ struct Agent {
 };
 
 struct Agent* createAgent() {
-  struct Agent* agent = malloc (sizeof (struct Agent));
+  struct Agent *agent = emalloc (sizeof (struct Agent));
+  agent->mutex = (pthread_mutex_t *) emalloc(sizeof(pthread_mutex_t));
+  agent->match = (pthread_cond_t *) emalloc(sizeof(pthread_cond_t));
+  agent->paper = (pthread_cond_t *) emalloc(sizeof(pthread_cond_t));
+  agent->tobacco = (pthread_cond_t *) emalloc(sizeof(pthread_cond_t));
+
   pthread_mutex_init(agent->mutex, NULL);
   pthread_cond_init(agent->paper, NULL);
   pthread_cond_init(agent->match, NULL);
@@ -179,6 +193,8 @@ void* tobacco_smoker(void *a) {
 }
 
 int main (int argc, char** argv) {
+  VERBOSE_PRINT("---\n");
+    
   struct Agent*  a = createAgent();
   int ret; // used to validate init/creation of pthread stuff
   flag = 0;
