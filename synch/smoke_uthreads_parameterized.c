@@ -9,11 +9,12 @@
 #define NUM_ITERATIONS 10000
 
 
-#ifdef VERBOSE
+// TODO re-add ifdef
+//#ifdef VERBOSE
 #define VERBOSE_PRINT(S, ...) printf (S, ##__VA_ARGS__);
-#else
-#define VERBOSE_PRINT(S, ...) ;
-#endif
+//#else
+//#define VERBOSE_PRINT(S, ...) ;
+//#endif
 
 struct Agent {
   uthread_mutex_t mutex;
@@ -90,19 +91,20 @@ typedef struct listener_package {
 } listener_package_t;
 
 listener_package_t* get_listener_pkg(enum Resource resource, struct Agent *agent) {
+  VERBOSE_PRINT("\tGetting listener pkg\n"); 
   listener_package_t *lp = (listener_package_t *) (sizeof(listener_package_t));
   lp->agent = agent;
+  VERBOSE_PRINT("\t\tassigned agent\n");
   lp->resource = resource;
   return lp;
 }
 
 void* listener(void *p) {
-  VERBOSE_PRINT("%s listener running\n", name);
   listener_package_t *pkg = (listener_package_t *) p;
   char *name = resource_name[pkg->resource];
   struct Agent *agent = pkg->agent; 
-  uthread_cond_t resource_cond = resource_conds[pkg->resource];
-  
+  uthread_cond_t resource_cond = resource_conds[pkg->resource]; 
+  VERBOSE_PRINT("%s listener running\n", name);
   uthread_mutex_lock(agent->mutex);
   while(1) {
     VERBOSE_PRINT("%s listener ready\n", name);
@@ -127,6 +129,7 @@ typedef struct smoker_package {
 } smoker_package_t;
 
 smoker_package_t* get_smoker_pkg(enum Resource resource, struct Agent *agent, uthread_cond_t wakeup) {
+  VERBOSE_PRINT("\tGetting smoker pkg\n"); 
   smoker_package_t *sp = (smoker_package_t *) malloc(sizeof(smoker_package_t));
   sp->resource = resource;
   sp->agent = agent; 
@@ -134,16 +137,16 @@ smoker_package_t* get_smoker_pkg(enum Resource resource, struct Agent *agent, ut
 }
 
 void* smoker(void *p) {
-  VERBOSE_PRINT("Match smoker running\n");
   smoker_package_t *pkg = (smoker_package_t *) p;
   struct Agent *agent = pkg->agent;
   char *name = resource_name[pkg->resource];
   uthread_cond_t wakeup = pkg->wakeup;
+  VERBOSE_PRINT("%s smoker running\n", name);
   
   uthread_mutex_lock(agent->mutex);
   while((1)){
     VERBOSE_PRINT("%s smoker ready\n", name);
-    uthread_cond_wait(wakeup)
+    uthread_cond_wait(wakeup);
     VERBOSE_PRINT("%s smoker SMOKING\n", name);
     uthread_cond_signal(agent->smoke);
     smoke_count[pkg->resource]++;
