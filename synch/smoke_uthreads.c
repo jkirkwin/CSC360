@@ -8,12 +8,16 @@
 
 #define NUM_ITERATIONS 10000
 
-
 #ifdef VERBOSE
 #define VERBOSE_PRINT(S, ...) printf (S, ##__VA_ARGS__);
 #else
 #define VERBOSE_PRINT(S, ...) ;
 #endif
+
+/*
+ * A parameterized version of my solution using pthreads. 
+ * A little less code but a lot more pain. :)
+ */ 
 
 struct Agent {
   uthread_mutex_t mutex;
@@ -46,27 +50,8 @@ int smoke_count  [5];  // # of times smoker with resource smoked
 
 int flag; 
 
-uthread_cond_t match_wakeup, paper_wakeup, tobacco_wakeup;
-
-void check_flag() {
-  switch(flag) {
-    case MATCH + PAPER:
-      uthread_cond_signal(tobacco_wakeup);
-      flag = 0;
-      break;
-
-    case MATCH + TOBACCO:
-      uthread_cond_signal(paper_wakeup);
-      flag = 0;
-      break;
-
-    case PAPER + TOBACCO:
-      uthread_cond_signal(match_wakeup);
-      flag = 0;
-      break;
-  }
-}
-
+uthread_cond_t resource_conds[10]; // holds the 3 condition variables for each resource
+uthread_cond_t wakeups[10]; // holds the 3 wakeup condition variables used by the smokers
 
 /**
  * This is the agent procedure.  It is complete and you shouldn't change it in
@@ -78,7 +63,7 @@ void* agent (void* av) {
   struct Agent* a = av;
   static const int choices[]         = {MATCH|PAPER, MATCH|TOBACCO, PAPER|TOBACCO};
   static const int matching_smoker[] = {TOBACCO,     PAPER,         MATCH};
-  printf("Agent thread running\n");
+  VERBOSE_PRINT("Agent thread running\n");
   uthread_mutex_lock (a->mutex);
     for (int i = 0; i < NUM_ITERATIONS; i++) {
       int r = random() % 3;
@@ -103,82 +88,89 @@ void* agent (void* av) {
   return NULL;
 }
 
-void* match_listener(void *a) {
-  VERBOSE_PRINT("Match listener running\n");
-  struct Agent *agent = (struct Agent *) a;
-  uthread_mutex_lock(agent->mutex);
-  while(1) {
-    VERBOSE_PRINT("Match listener ready\n");
-    uthread_cond_wait(agent->match);
-    VERBOSE_PRINT("Match listener woken up\n");
-    flag += MATCH;
-    check_flag();
-  }
+typedef struct listener_package {
+  struct Agent *agent;
+  enum Resource resource;
+} listener_package_t;
+
+listener_package_t* get_listener_pkg(enum Resource resource, struct Agent *agent) {
+  VERBOSE_PRINT("\tGetting listener pkg\n"); 
+  listener_package_t *lp = (listener_package_t *) malloc(sizeof(listener_package_t));
+  lp->agent = agent;
+  VERBOSE_PRINT("\t\tassigned agent\n");
+  lp->resource = resource;
+  return lp;
 }
 
-void* paper_listener(void *a) {
-  VERBOSE_PRINT("Paper listener running\n");
-  struct Agent *agent = (struct Agent *) a;
+int listeners_ready;
+uthread_mutex_t listeners_ready_mutex; 
+
+void* listener(void *p) {
+  listener_package_t *pkg = (listener_package_t *) p;
+  char *name = resource_name[pkg->resource];
+  struct Agent *agent = pkg->agent; 
+  uthread_cond_t resource_cond = resource_conds[pkg->resource]; 
+  VERBOSE_PRINT("%s listener running\n", name);
   uthread_mutex_lock(agent->mutex);
   while(1) {
-    VERBOSE_PRINT("Paper listener ready\n");
-    uthread_cond_wait(agent->paper);
-    VERBOSE_PRINT("Paper listener woken up\n");
-    flag += PAPER;
-    check_flag();
+    if(listeners_ready < 3) {
+      uthread_mutex_lock(listeners_ready_mutex);
+      listeners_ready++; // To let us ensure all have entered the loop before passing control to the agent  
+      uthread_mutex_unlock(listeners_ready_mutex);
+    }
+    VERBOSE_PRINT("%s listener ready\n", name);
+    uthread_cond_wait(resource_cond);
+    VERBOSE_PRINT("%s listener woken up\n", name);
+    flag += pkg->resource;
+    switch(flag) {
+      case MATCH + PAPER:
+      case MATCH + TOBACCO:
+      case PAPER + TOBACCO:
+        uthread_cond_signal(wakeups[flag]);
+        flag = 0;
+        break;
+    }
   }
+} 
+
+typedef struct smoker_package {
+  enum Resource resource;
+  struct Agent *agent;
+  uthread_cond_t wakeup;
+} smoker_package_t;
+
+smoker_package_t* get_smoker_pkg(enum Resource resource, struct Agent *agent, uthread_cond_t wakeup) {
+  VERBOSE_PRINT("\tGetting smoker pkg\n"); 
+  smoker_package_t *sp = (smoker_package_t *) malloc(sizeof(smoker_package_t));
+  sp->resource = resource;
+  sp->agent = agent; 
+  sp->wakeup = wakeup;
 }
 
-void* tobacco_listener(void *a) {
-  VERBOSE_PRINT("Tobacco listener running\n");
-  struct Agent *agent = (struct Agent *) a;
-  uthread_mutex_lock(agent->mutex);
-  while(1) {
-    VERBOSE_PRINT("Tobacco listener ready\n");
-    uthread_cond_wait(agent->tobacco);
-    VERBOSE_PRINT("Tobacco listener woken up\n");
-    flag += TOBACCO;
-    check_flag();
-  }
-}
+int smokers_ready;
+uthread_mutex_t smokers_ready_mutex;
 
-void* match_smoker(void *a) {
-  VERBOSE_PRINT("Match smoker running\n");
-  struct Agent *agent = (struct Agent *) a;
+void* smoker(void *p) {
+  smoker_package_t *pkg = (smoker_package_t *) p;
+  struct Agent *agent = pkg->agent;
+  char *name = resource_name[pkg->resource];
+  uthread_cond_t wakeup = pkg->wakeup;
+  VERBOSE_PRINT("%s smoker running\n", name);
+  
   uthread_mutex_lock(agent->mutex);
-  while(1) {
-    VERBOSE_PRINT("Match smoker ready\n");
-    uthread_cond_wait(match_wakeup);
-    VERBOSE_PRINT("Match smoker SMOKING\n");
+  while((1)){
+    if(smokers_ready < 3) {
+      uthread_mutex_lock(smokers_ready_mutex);
+      smokers_ready++; // To let us ensure all have entered the loop before passing control to the agent  
+      uthread_mutex_unlock(smokers_ready_mutex);
+    }
+    VERBOSE_PRINT("%s smoker ready\n", name);
+    uthread_cond_wait(wakeup);
+    VERBOSE_PRINT("%s smoker SMOKING\n", name);
     uthread_cond_signal(agent->smoke);
-    smoke_count[MATCH]++;
+    smoke_count[pkg->resource]++;
   }
-}
-
-void* paper_smoker(void *a) {
-  VERBOSE_PRINT("Paper smoker running\n");
-  struct Agent *agent = (struct Agent *) a;
-  uthread_mutex_lock(agent->mutex);
-  while(1) {
-    VERBOSE_PRINT("Paper smoker ready\n");
-    uthread_cond_wait(paper_wakeup);
-    VERBOSE_PRINT("Paper smoker SMOKING\n");
-    uthread_cond_signal(agent->smoke);
-    smoke_count[PAPER]++;
-  }
-}
-
-void* tobacco_smoker(void *a) {
-  VERBOSE_PRINT("Tobacco smoker running\n");
-  struct Agent *agent = (struct Agent *) a;
-  uthread_mutex_lock(agent->mutex);
-  while(1) {
-    VERBOSE_PRINT("Tobacco smoker ready\n");
-    uthread_cond_wait(tobacco_wakeup);
-    VERBOSE_PRINT("Tobacco smoker SMOKING\n");
-    uthread_cond_signal(agent->smoke);
-    smoke_count[TOBACCO]++;
-  }
+  
 }
 
 int main (int argc, char** argv) {
@@ -188,32 +180,38 @@ int main (int argc, char** argv) {
 
   VERBOSE_PRINT("MAIN STARTED\n");
 
-  match_wakeup = uthread_cond_create(a->mutex);
-  paper_wakeup = uthread_cond_create(a->mutex);
-  tobacco_wakeup = uthread_cond_create(a->mutex);
+  wakeups[MATCH + PAPER] = uthread_cond_create(a->mutex);
+  wakeups[TOBACCO + PAPER] = uthread_cond_create(a->mutex);
+  wakeups[MATCH + TOBACCO] = uthread_cond_create(a->mutex);
 
   VERBOSE_PRINT("WAKEUPS INITIALIZED\n");
+
+  resource_conds[MATCH] = a->match;
+  resource_conds[PAPER] = a->paper;
+  resource_conds[TOBACCO] = a->tobacco;
+
+  VERBOSE_PRINT("RESOURCE COND ARRAY SET UP\n");
 
   uthread_t match_smoker_ut, paper_smoker_ut, tobacco_smoker_ut; 
   uthread_t match_listener_ut, paper_listener_ut, tobacco_listener_ut;
 
-  // Start listener threads and wait until they are ready to go
-  match_listener_ut = uthread_create(match_listener, a);
-  paper_listener_ut = uthread_create(paper_listener, a);
-  tobacco_listener_ut = uthread_create(tobacco_listener, a);
-  
-  sleep(2); // TODO add a global flag and mutex for the listeners to increment once they are ready to go instead of this
+  listeners_ready = 0;
+  listeners_ready_mutex = uthread_mutex_create();
+  match_listener_ut = uthread_create(listener, get_listener_pkg(MATCH, a));
+  paper_listener_ut = uthread_create(listener, get_listener_pkg(PAPER, a));
+  tobacco_listener_ut = uthread_create(listener, get_listener_pkg(TOBACCO, a));  
+  while(listeners_ready < 3); // Wait for all listeners to enter their loop
 
-  VERBOSE_PRINT("LISTENERS CREATED\n");
+  VERBOSE_PRINT("LISTENERS CREATED AND READY\n");
 
-  // Make smoker threads and wait until they are ready to go
-  match_smoker_ut = uthread_create(match_smoker, a);
-  paper_smoker_ut = uthread_create(paper_smoker, a);
-  paper_smoker_ut = uthread_create(tobacco_smoker, a);
-  
-  sleep(3); // TODO add a global flag and mutex for smokers to increment once they are ready to go
+  smokers_ready = 0;
+  smokers_ready_mutex = uthread_mutex_create();
+  match_smoker_ut = uthread_create(smoker, get_smoker_pkg(MATCH, a, wakeups[PAPER + TOBACCO]));
+  paper_smoker_ut = uthread_create(smoker, get_smoker_pkg(PAPER, a, wakeups[MATCH + TOBACCO]));
+  paper_smoker_ut = uthread_create(smoker, get_smoker_pkg(TOBACCO, a, wakeups[PAPER + MATCH]));
+  while(smokers_ready < 3); // Wait for all smokers to enter their loop
 
-  VERBOSE_PRINT("SMOKERS CREATED. RUNNING AGENT\n");
+  VERBOSE_PRINT("SMOKERS CREATED AND READY. RUNNING AGENT\n");
 
   uthread_join (uthread_create (agent, a), 0);
 
@@ -224,9 +222,12 @@ int main (int argc, char** argv) {
   uthread_cond_destroy(a->tobacco);
   uthread_cond_destroy(a->paper);
   
-  uthread_cond_destroy(match_wakeup);
-  uthread_cond_destroy(paper_wakeup);
-  uthread_cond_destroy(tobacco_wakeup);
+  uthread_cond_destroy(wakeups[PAPER + TOBACCO]);
+  uthread_cond_destroy(wakeups[MATCH + TOBACCO]);
+  uthread_cond_destroy(wakeups[PAPER + MATCH]);
+
+  uthread_mutex_destroy(smokers_ready_mutex);
+  uthread_mutex_destroy(listeners_ready_mutex);
 
   // Verify
   VERBOSE_PRINT("Smoke  counts: %d matches, %d paper, %d tobacco\n", smoke_count [MATCH], smoke_count [PAPER], smoke_count [TOBACCO]);
