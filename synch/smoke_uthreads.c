@@ -16,7 +16,7 @@
 
 /*
  * A parameterized version of my solution using pthreads. 
- * A little less code but a lot more pain. :)
+ * A little more code reuse but a lot more pain. :)
  */ 
 
 struct Agent {

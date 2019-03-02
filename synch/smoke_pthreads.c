@@ -109,11 +109,19 @@ void check_flag() {
   }
 }
 
+int listeners_ready; // TODO
+pthread_mutex_t listeners_ready_mutex; // TODO
+
 void* match_listener(void *a) {
   VERBOSE_PRINT("Match listener running\n");
   struct Agent *agent = (struct Agent *) a;
   pthread_mutex_lock(&(agent->mutex));
   while(1) {
+    if(listeners_ready < 3) {
+      pthread_mutex_lock(&listeners_ready_mutex);
+      listeners_ready++;
+      pthread_mutex_unlock(&listeners_ready_mutex);
+    }
     VERBOSE_PRINT("Match listener ready\n");
     pthread_cond_wait(&(agent->match), &(agent->mutex));
     VERBOSE_PRINT("Match listener woken up\n");
@@ -127,6 +135,11 @@ void* paper_listener(void *a) {
   struct Agent *agent = (struct Agent *) a;
   pthread_mutex_lock(&(agent->mutex));
   while(1) {
+    if(listeners_ready < 3) {
+      pthread_mutex_lock(&listeners_ready_mutex);
+      listeners_ready++;
+      pthread_mutex_unlock(&listeners_ready_mutex);
+    }
     VERBOSE_PRINT("Paper listener ready\n");
     pthread_cond_wait(&(agent->paper), &(agent->mutex));
     VERBOSE_PRINT("Paper listener woken up\n");
@@ -140,6 +153,11 @@ void* tobacco_listener(void *a) {
   struct Agent *agent = (struct Agent *) a;
   pthread_mutex_lock(&(agent->mutex));
   while(1) {
+    if(listeners_ready < 3) {
+      pthread_mutex_lock(&listeners_ready_mutex);
+      listeners_ready++;
+      pthread_mutex_unlock(&listeners_ready_mutex);
+    }
     VERBOSE_PRINT("Tobacco listener ready\n");
     pthread_cond_wait(&(agent->tobacco), &(agent->mutex));
     VERBOSE_PRINT("Tobacco listener woken up\n");
@@ -148,11 +166,19 @@ void* tobacco_listener(void *a) {
   }
 }
 
+int smokers_ready; // TODO
+pthread_mutex_t smokers_ready_mutex; // TODO
+
 void* match_smoker(void *a) {
   VERBOSE_PRINT("Match smoker running\n");
   struct Agent *agent = (struct Agent *) a;
   pthread_mutex_lock(&(agent->mutex));
   while(1) {
+    if(smokers_ready < 3) {
+      pthread_mutex_lock(&smokers_ready_mutex);
+      smokers_ready++;
+      pthread_mutex_unlock(&smokers_ready_mutex);
+    }
     VERBOSE_PRINT("Match smoker ready\n");
     pthread_cond_wait(&wakeup_match, &(agent->mutex));
     VERBOSE_PRINT("Match smoker SMOKING\n");
@@ -166,6 +192,11 @@ void* paper_smoker(void *a) {
   struct Agent *agent = (struct Agent *) a;
   pthread_mutex_lock(&(agent->mutex));
   while(1) {
+    if(smokers_ready < 3) {
+      pthread_mutex_lock(&smokers_ready_mutex);
+      smokers_ready++;
+      pthread_mutex_unlock(&smokers_ready_mutex);
+    }
     VERBOSE_PRINT("Paper smoker ready\n");
     pthread_cond_wait(&wakeup_paper, &(agent->mutex));
     VERBOSE_PRINT("Paper smoker SMOKING\n");
@@ -179,6 +210,11 @@ void* tobacco_smoker(void *a) {
   struct Agent *agent = (struct Agent *) a;
   pthread_mutex_lock(&(agent->mutex));
   while(1) {
+    if(smokers_ready < 3) {
+      pthread_mutex_lock(&smokers_ready_mutex);
+      smokers_ready++;
+      pthread_mutex_unlock(&smokers_ready_mutex);
+    }
     VERBOSE_PRINT("Tobacco smoker ready\n");
     pthread_cond_wait(&wakeup_tobacco, &(agent->mutex));
     VERBOSE_PRINT("Tobacco smoker SMOKING\n");
@@ -204,26 +240,21 @@ int main (int argc, char** argv) {
   pthread_t match_smoker_pt, paper_smoker_pt, tobacco_smoker_pt; 
   pthread_t match_listener_pt, paper_listener_pt, tobacco_listener_pt;
 
-  // Create smoker threads
+  smokers_ready = 0;
+  pthread_mutex_init(&smokers_ready_mutex, NULL);
   pthread_create(&match_smoker_pt, NULL, match_smoker, a);
   pthread_create(&paper_smoker_pt, NULL, paper_smoker, a);
   pthread_create(&tobacco_smoker_pt, NULL, tobacco_smoker, a);
   
-  VERBOSE_PRINT("SMOKER THREADS CREATED\n");
+  VERBOSE_PRINT("SMOKER THREADS CREATED AND READY\n");
 
-  // TODO ensure smokers have started the loop (i.e. are waiting) in a more reliable way
-  sleep(1);
-
-
-  // Create listeners
+  listeners_ready = 0;
+  pthread_mutex_init(&listeners_ready_mutex, NULL);
   pthread_create(&match_listener_pt, NULL, match_listener, a);
   pthread_create(&paper_listener_pt, NULL, paper_listener, a);
   pthread_create(&tobacco_listener_pt, NULL, tobacco_listener, a);
   
-  VERBOSE_PRINT("LISTENER THREADS CREATED\n");
-
-  // TODO ensure listeners have started the loop (i.e. are waiting) in a more reliable way
-  sleep(1);
+  VERBOSE_PRINT("LISTENER THREADS CREATED AND READY\n");
 
   // Create agent and join it
   VERBOSE_PRINT("CREATING AGENT THREAD\n");
