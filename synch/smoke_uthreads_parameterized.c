@@ -9,12 +9,11 @@
 #define NUM_ITERATIONS 10000
 
 
-// TODO re-add ifdef
-//#ifdef VERBOSE
+#ifdef VERBOSE
 #define VERBOSE_PRINT(S, ...) printf (S, ##__VA_ARGS__);
-//#else
-//#define VERBOSE_PRINT(S, ...) ;
-//#endif
+#else
+#define VERBOSE_PRINT(S, ...) ;
+#endif
 
 struct Agent {
   uthread_mutex_t mutex;
@@ -92,7 +91,7 @@ typedef struct listener_package {
 
 listener_package_t* get_listener_pkg(enum Resource resource, struct Agent *agent) {
   VERBOSE_PRINT("\tGetting listener pkg\n"); 
-  listener_package_t *lp = (listener_package_t *) (sizeof(listener_package_t));
+  listener_package_t *lp = (listener_package_t *) malloc(sizeof(listener_package_t));
   lp->agent = agent;
   VERBOSE_PRINT("\t\tassigned agent\n");
   lp->resource = resource;
