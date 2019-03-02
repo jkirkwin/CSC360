@@ -191,7 +191,6 @@ int main (int argc, char** argv) {
   VERBOSE_PRINT("---\n");
     
   struct Agent*  a = createAgent();
-  int ret; // used to validate init/creation of pthread stuff
   flag = 0;
   
   VERBOSE_PRINT("Main started\n");
@@ -208,51 +207,25 @@ int main (int argc, char** argv) {
   pthread_t match_listener_pt, paper_listener_pt, tobacco_listener_pt;
 
   // Create smoker threads
-  ret = pthread_create(&match_smoker_pt, NULL, match_smoker, a);
-  if(!ret) {
-    perror("match smoker thread creation failed\n");
-    exit(1);
-  }
-  ret = pthread_create(&paper_smoker_pt, NULL, paper_smoker, a);
-  if(!ret) {
-    perror("paper smoker thread creation failed\n");
-    exit(1);
-  }
-  ret = pthread_create(&tobacco_smoker_pt, NULL, tobacco_smoker, a);
-  if(!ret) {
-    perror("tobacco smoker thread creation failed\n");
-    exit(1);
-  }
+  pthread_create(&match_smoker_pt, NULL, match_smoker, a);
+  pthread_create(&paper_smoker_pt, NULL, paper_smoker, a);
+  pthread_create(&tobacco_smoker_pt, NULL, tobacco_smoker, a);
+  
   VERBOSE_PRINT("Smoker threads created\n");
   // TODO ensure smokers have started the loop (i.e. are waiting)
 
 
   // Create listeners
-  ret = pthread_create(&match_listener_pt, NULL, match_listener, a);
-  if(!ret) {
-    perror(" listener thread creation failed\n");
-    exit(1);
-  }  
-  ret = pthread_create(&paper_listener_pt, NULL, paper_listener, a);
-  if(!ret) {
-    perror(" listener thread creation failed\n");
-    exit(1);
-  }  
-  ret = pthread_create(&tobacco_listener_pt, NULL, tobacco_listener, a);
-  if(!ret) {
-    perror(" listener thread creation failed\n");
-    exit(1);
-  }
+  pthread_create(&match_listener_pt, NULL, match_listener, a);
+  pthread_create(&paper_listener_pt, NULL, paper_listener, a);
+  pthread_create(&tobacco_listener_pt, NULL, tobacco_listener, a);
+  
   VERBOSE_PRINT("Listener threads created\n");
   // TODO ensure listeners have started the loop (i.e. are waiting)
 
   // Create agent and join it
   VERBOSE_PRINT("Creating agent thread\n");
-  ret = pthread_create(&agent_pt, NULL, agent, NULL);
-  if(!ret) {
-    perror("failed to create agent thread");
-    exit(1);
-  }
+  pthread_create(&agent_pt, NULL, agent, NULL);
   pthread_join(agent_pt, NULL);
 
   // Teardown
