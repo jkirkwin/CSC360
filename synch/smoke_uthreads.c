@@ -169,11 +169,16 @@ void* listener(void *p) {
   uthread_mutex_lock(pkg->mutex);
   while(1) {
     printf("%s listener ready\n", rsrc_name);
+
     uthread_cond_wait(pkg->listen_for);
+    
     printf("%s listener woken up\n", rsrc_name);
+    
     // resource signalled by agent
     uthread_mutex_lock(pkg->mutex);
+    
     printf("\tlistener got agent mutex lock\n");
+    
     //uthread_mutex_lock(flag_mutex);
    // printf("\tlistener got flag mutex lock\n");
     flag += pkg->resource;
