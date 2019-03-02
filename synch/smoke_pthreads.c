@@ -5,14 +5,13 @@
 #include <unistd.h>
 #include <pthread.h>
 
-#define NUM_ITERATIONS 1000
+#define NUM_ITERATIONS 10000
 
-// TODO put this back for sumbmission
-// #ifdef VERBOSE
+#ifdef VERBOSE
 #define VERBOSE_PRINT(S, ...) printf (S, ##__VA_ARGS__);
-// #else
-// #define VERBOSE_PRINT(S, ...) ;
-// #endif
+#else
+#define VERBOSE_PRINT(S, ...) ;
+#endif
 
 void * emalloc(size_t size) {
     void * ptr = malloc(size);
@@ -189,7 +188,7 @@ void* tobacco_smoker(void *a) {
     pthread_cond_wait(&wakeup_tobacco, &(agent->mutex));
     VERBOSE_PRINT("Tobacco smoker SMOKING\n");
     pthread_cond_signal(&(agent->smoke));
-    smoke_count[PAPER]++;
+    smoke_count[TOBACCO]++;
   }
 }
 
@@ -247,6 +246,8 @@ int main (int argc, char** argv) {
   pthread_cond_destroy(&wakeup_paper);
   pthread_cond_destroy(&wakeup_tobacco);
 
+  VERBOSE_PRINT("Smoke  counts: %d matches, %d paper, %d tobacco\n", smoke_count [MATCH], smoke_count [PAPER], smoke_count [TOBACCO]);
+  VERBOSE_PRINT("Signal counts: %d matches, %d paper, %d tobacco\n", signal_count [MATCH], signal_count [PAPER], signal_count [TOBACCO]);
   assert (signal_count [MATCH]   == smoke_count [MATCH]);
   assert (signal_count [PAPER]   == smoke_count [PAPER]);
   assert (signal_count [TOBACCO] == smoke_count [TOBACCO]);
