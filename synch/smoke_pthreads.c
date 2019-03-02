@@ -183,7 +183,7 @@ int main (int argc, char** argv) {
   int ret; // used to validate init/creation of pthread stuff
   flag = 0;
   
-  // TODO need to init whatever cond variables, mutexes etc you need, create any structs, allocate any memory 
+  VERBOSE_PRINT("Main started\n");
 
   // Init wakeup cond vars
   ret = pthread_cond_init(wakeup_match, NULL);
@@ -202,7 +202,8 @@ int main (int argc, char** argv) {
     exit(1);
   }
 
-
+  VERBOSE_PRINT("Wakeups initialized\n");
+  
   pthread_t agent_pt;
   pthread_t match_smoker_pt, paper_smoker_pt, tobacco_smoker_pt; 
   pthread_t match_listener_pt, paper_listener_pt, tobacco_listener_pt;
@@ -245,7 +246,6 @@ int main (int argc, char** argv) {
   }
   VERBOSE_PRINT("Listener threads created\n");
   // TODO ensure listeners have started the loop (i.e. are waiting)
-
 
   // Create agent and join it
   VERBOSE_PRINT("Creating agent thread\n");
