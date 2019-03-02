@@ -231,8 +231,9 @@ int main (int argc, char** argv) {
 
 
   // Create agent and join it
-  VERBOSE_PRINT("Creating agent thread\n");
-  pthread_create(&agent_pt, NULL, agent, NULL);
+  VERBOSE_PRINT("CREATING AGENT THREAD\n");
+  pthread_create(&agent_pt, NULL, agent, a);
+  VERBOSE_PRINT("AGENT CREATED, JOINING");
   pthread_join(agent_pt, NULL);
 
   // Teardown
