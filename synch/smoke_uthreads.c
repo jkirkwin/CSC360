@@ -6,14 +6,14 @@
 #include "uthread.h"
 #include "uthread_mutex_cond.h"
 
-#define NUM_ITERATIONS 5 // TODO Make big
+#define NUM_ITERATIONS 10000
 
-// TODO replace the ifdef
-// #ifdef VERBOSE
+
+#ifdef VERBOSE
 #define VERBOSE_PRINT(S, ...) printf (S, ##__VA_ARGS__);
-// #else
-// #define VERBOSE_PRINT(S, ...) ;
-// #endif
+#else
+#define VERBOSE_PRINT(S, ...) ;
+#endif
 
 struct Agent {
   uthread_mutex_t mutex;
