@@ -56,6 +56,8 @@ A1Warmup/Pt2/*.txt
 
 #VSCode
 .vscode
+
+#Misc
 kapish/.bash_history
 kapish/.gitconfig
 kapish/.viminfo
