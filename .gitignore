@@ -56,3 +56,9 @@ A1Warmup/Pt2/*.txt
 
 #VSCode
 .vscode
+kapish/.bash_history
+kapish/.gitconfig
+kapish/.viminfo
+kapish/_netrc
+kapish/.config/heroku/config.json
+kapish/.gitconfig
