@@ -130,3 +130,33 @@ Params
 Return
 
     Return value description goes here
+
+
+## My "Journey"
+
+I ran into an issue part way through creating my disk controller: my machine 
+decided to stop recognizing includes to libraries like stdio, stdlib, and stdbool
+
+I decided to just power through and do all the compilation and testing on the 
+ssh server, pulling from my github repo for this class to get the source files
+I wrote on my windows machine. 
+
+I then noticed that including fcntl.h, needed for unbuffered opening of my vdisk
+failed on the ssh server! I really wanted to use unbuffered operations for the 
+virtual disk because it seemed much more true to the concept of trying to 
+mimic a physical disk as closely as possible. 
+
+At this point I am unsure whether I will try to debug this or resort to using 
+buffered IO in my disk controller. I made a post on the forum showing my error
+from the include; hopefully someone is able to help!
+
+Yvonne commented on my forum post saying that I should just use a buffered 
+approach, so I'll just do that.
+
+Re-wrote vdisk_read() to use buffered operations instead.
+
+In my infinite wisdom, I decided to test out my manual_read() function used for 
+my disk unit tests by reading my source file for the disk controller. It wiped 
+the file and I haven't committed since I re-wrote it with buffered operations. I
+am ready for death.
+

@@ -1,30 +1,8 @@
-/* Author: Jamie Kirkwin
- * 
- * This is the lowest level API in the file system assignment
- * 
- * It defines the  operations that can be performed on the virtual disk.
- * Namely: reading and writing a given block.
- * 
- * Here (in the h file) we also define constants for the size of the blocks used
- * and number of blocks on the disk
- */ 
-
-#include <fcntl.h> // open()
-#include <unistd.h> // read(), write(), lseek(), close()
-#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
-
-/*
-The stuff below is path_unbuffered!
-- int open(const char *pathname, int flags); // >> fcntl.h <<
-- ssize_t read(int fd, void *buf, size_t count); // unistd.h
-- ssize_t write(int fd, const void *buf, size_t count); //unistd.h
-- off_t lseek(int fd, off_t offset, int whence); //unistd.h
-- void close(int fd); //unistd.h 
-*/
+#include <stlib.h>
 
 #include "vdisk.h"
-
 /*
  * A helper function for getting path to vdisk in current directory.
  * 
@@ -63,83 +41,79 @@ char *get_vdisk_path() {
     return vdisk_path;
 }
 
-/*
- * Fills a path_buffer of size 512 that was passed in with the specified block's 
- * contents
- * 
- * @param
- * block_number:    the block number to read from
- * buffer:          a buffer to store the block's content in
- * alt_disk_path:   An optional path to an alternate disk on which to perform 
- *                  the operation. 
- *                  If none is specified, the operation is performed on the    
- *                  vdisk file located in the current directory 
- * 
- * @return true if successful, false otherwise
- * 
- * @pre if no alt_disk_path is provided, there must exist a formatted vdisk in 
- *      the current working directory
- */
-
-bool vdisk_read(int block_number, void *buffer, char *alt_disk_path) {
-    if(block_number < 0 || BLOCKS_ON_DISK <= block_number) {
-        fprintf(stderr, "Failed read: block number %d out of range\n", block_number);
-        return false;
-    }
-    if(!buffer) {
-        fprintf(stderr, "Failed read: No buffer given\n");
-    }
-
-    char *vdisk_path;
-    if(alt_disk_path) {
-        vdisk_path = alt_disk_path; 
+bool vdisk_read(int block_number, void *buffer, FILE *alt_disk) {
+    FILE fp;
+    char *path;
+    if(alt_disk) {
+        fp = alt_disk;
     } else {
-        vdisk_path = get_vdisk_path();
-        if(!vdisk_path) {
-            fprintf(stderr, "read failed: could not generate path to disk\n");
+        path = get_vdisk_path();
+        fp = fopen(path, "rb");
+        if(!fp) {
+            fprintf(stderr, "Read Failed: cannot open vdisk\n");
             return false;
         }
     }
 
-    int fd = open(vdisk_path, O_RDONLY);
-    if(-1 == fd) {
-        fprintf(stderr, "read failed: could not open file\n\t\"%s\"\n", vdisk_path);
-        return false;
+    fseek(fp, BYTES_PER_BLOCK * block_number, SEEK_SET);
+    int bytes_read = fread(buffer, BLOCK_SIZE, 1, fp);
+    if(bytes_read != BLOCK_SIZE) {
+        fprintf(stderr, "Read Failed: Read %d bytes (should be %d)\n", 
+            bytes_read, BYTES_PER_BLOCK);
+    } 
+
+    if(!alt_disk) {
+        free(path);
+        fclose(fp);
     }
-    
-    off_t offset = BYTES_PER_BLOCK * block_number;
-    lseek(fd, offset, SEEK_SET);
-    
-    ssize_t bytes_read = read(fd, buffer, BYTES_PER_BLOCK);
-    if(bytes_read < 0) {
-        fprintf(stderr, "read failed: unable to perform disk read\n");
-        return false;
-    }
-    
-    if(!alt_disk_path) {
-        free(vdisk_path);
-    }
-    return true;
 }
 
-/*
- * Write the content of a buffer of size 512 to the specified block
- * 
- * @param
- * block_number:    the block number to write to
- * buffer:          a buffer containing the content to write
- * alt_disk_path:   An optional path to an alternate disk on which to perform 
- *                  the operation. 
- *                  If none is specified, the operation is performed on the    
- *                  vdisk file located in the current directory 
- * 
- * @return true if successful, false otherwise
- * 
- * @pre if no alt_disk_path is provided, there must exist a formatted vdisk in 
- * the current working directory
- */
+// Offset is where to start writing in the block. Method will only write to the 
+// end of the specified block
+bool vdisk_write(int block_number, void *content, int offset, int content_length,
+         FILE *alt_disk) {
+    if(block_number < 0 || block_number >= BLOCKS_ON_DISK) {
+        fprintf(stderr, "Write failed: invalid block number: %d\n", block_number);
+        return false;
+    }
+    
+    if(!content) {
+        fprintf(stderr, "Write failed: no content passed\n");
+        return false;
+    }
 
-bool vdisk_write(int block_number, void *buffer, char *alt_disk_path) {
-    // TODO
-    return false;
+    if(offset < 0 || offset >= BYTES_PER_BLOCK) {
+        fprintf(stderr, "Write failed: offset out of bounds. Offset given:%d\n", 
+            offset);
+        return false;
+    }
+
+    FILE fp;
+    char *path;
+    if(alt_disk) {
+        fp = alt_disk;
+    } else {
+        path = get_vdisk_path();
+        fp = fopen(path, "wb");
+        if(!fp) {
+            fprintf(stderr, "Write Failed: cannot open vdisk\n");
+            return false;
+        }
+    }
+
+    fseek(fp, BYTES_PER_BLOCK * block_number + offset, SEEK_SET);
+    int length = BLOCK_SIZE - offset;
+    if(content_length < length) {
+        length = content_length;
+    }
+    int bytes_written = fwrite(buffer, content_length, 1, fp);
+    if(bytes_written != length) {
+        fprintf(stderr, "Write Failed: Wrote %d bytes (should be %d)\n", 
+            bytes_written, length);
+    } 
+
+    if(!alt_disk) {
+        free(path);
+        fclose(fp);
+    }
 }
