@@ -42,6 +42,17 @@ char *get_vdisk_path() {
     return vdisk_path;
 }
 
+/*
+ * Reads one block into the buffer provided. Blocks are of size 512 bytes, and 
+ * the buffer should be this large as well.
+ * 
+ * Blocks are indexed from 0 to 4095.
+ * 
+ * Alt disk must be opened for reading in binary mode
+ * 
+ * If no alt_disk is provided, this reads from the vdisk in the current working
+ * directory
+ */ 
 bool vdisk_read(int block_number, void *buffer, FILE *alt_disk) {
     FILE *fp;
     char *path;
@@ -70,9 +81,21 @@ bool vdisk_read(int block_number, void *buffer, FILE *alt_disk) {
     return true;
 }
 
-// Offset is where to start writing in the block. Method will only write to the 
-// end of the specified block
-// Mode needs to be rb+
+
+/*
+ * Writes one block from the buffer provided. Blocks are of size 512 bytes, and 
+ * the buffer should be this size or less.
+ * 
+ * Blocks are indexed from 0 to 4095.
+ * 
+ * Alt disk must be in rb+ mode
+ * 
+ * If no alt_disk is provided, this reads from the vdisk in the current working
+ * directory
+ * 
+ * Offsetting is supported, but content will be truncated in the case that it
+ * cannot fit into one block given the offset.
+ */ 
 bool vdisk_write(int block_number, void *content, int offset, int content_length,
          FILE *alt_disk) {
     if(block_number < 0 || block_number >= BLOCKS_ON_DISK) {
