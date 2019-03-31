@@ -160,3 +160,16 @@ my disk unit tests by reading my source file for the disk controller. It wiped
 the file and I haven't committed since I re-wrote it with buffered operations. I
 am ready for death.
 
+Read now seems to work; the tests for it are passing. Something weird is going 
+on with write though: a single write appears to work, but when doing multiple 
+writes only the last one takes effect. My first guess was that this is because
+our writes are buffered, so I tried flushing the stream after each write but 
+this did not change the behavior :(. The next idea (thanks to my roommate Jon!)
+is that each write is actually successful but the whole file is getting 
+overwritten each time we write a block. After a little probing, it looks like 
+each one is successful in writing the intended block, but all else gets zero-ed
+out! Now to see if we can figure out why.
+
+Bingo: for some reason using "wb+" still overwrites the file. Solved by opening 
+in "rb+" mode instead. Unit tests for disk read and write passing on windows.
+

@@ -57,10 +57,10 @@ bool vdisk_read(int block_number, void *buffer, FILE *alt_disk) {
     }
 
     fseek(fp, BYTES_PER_BLOCK * block_number, SEEK_SET);
-    int bytes_read = fread(buffer, BYTES_PER_BLOCK, 1, fp);
-    if(bytes_read != BYTES_PER_BLOCK) {
-        fprintf(stderr, "Read Failed: Read %d bytes (should be %d)\n", 
-            bytes_read, BYTES_PER_BLOCK);
+    int items_read = fread(buffer, BYTES_PER_BLOCK, 1, fp);
+    if(items_read < 1) {
+        fprintf(stderr, "Read Failed: fread() unsuccessful\n"); 
+        return false;
     } 
 
     if(!alt_disk) {
@@ -71,48 +71,45 @@ bool vdisk_read(int block_number, void *buffer, FILE *alt_disk) {
 
 // Offset is where to start writing in the block. Method will only write to the 
 // end of the specified block
+// Mode needs to be rb+
 bool vdisk_write(int block_number, void *content, int offset, int content_length,
          FILE *alt_disk) {
     if(block_number < 0 || block_number >= BLOCKS_ON_DISK) {
         fprintf(stderr, "Write failed: invalid block number: %d\n", block_number);
         return false;
     }
-    
     if(!content) {
         fprintf(stderr, "Write failed: no content passed\n");
         return false;
     }
-
     if(offset < 0 || offset >= BYTES_PER_BLOCK) {
         fprintf(stderr, "Write failed: offset out of bounds. Offset given:%d\n", 
             offset);
         return false;
     }
-
     FILE *fp;
     char *path;
     if(alt_disk) {
         fp = alt_disk;
     } else {
         path = get_vdisk_path();
-        fp = fopen(path, "wb");
+        fp = fopen(path, "rb+");
         if(!fp) {
             fprintf(stderr, "Write Failed: cannot open vdisk\n");
             return false;
         }
-    }
-
+    }   
     fseek(fp, BYTES_PER_BLOCK * block_number + offset, SEEK_SET);
     int length = BYTES_PER_BLOCK - offset;
     if(content_length < length) {
         length = content_length;
     }
-    int bytes_written = fwrite(content, length, 1, fp);
-    if(bytes_written != length) {
-        fprintf(stderr, "Write Failed: Wrote %d bytes (should be %d)\n", 
-            bytes_written, length);
-    } 
-
+    int items_written = fwrite(content, length, 1, fp);
+    if(items_written < 1) {
+        fprintf(stderr, "Write Failed: fwrite() failed\n");
+        return false;
+    }
+    fflush(fp); 
     if(!alt_disk) {
         free(path);
         fclose(fp);
