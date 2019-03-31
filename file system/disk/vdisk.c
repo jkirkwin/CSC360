@@ -67,6 +67,7 @@ bool vdisk_read(int block_number, void *buffer, FILE *alt_disk) {
         free(path);
         fclose(fp);
     }
+    return true;
 }
 
 // Offset is where to start writing in the block. Method will only write to the 
@@ -114,4 +115,5 @@ bool vdisk_write(int block_number, void *content, int offset, int content_length
         free(path);
         fclose(fp);
     }
+    return true;
 }
