@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
-#include <stlib.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #include "vdisk.h"
 /*
@@ -42,7 +43,7 @@ char *get_vdisk_path() {
 }
 
 bool vdisk_read(int block_number, void *buffer, FILE *alt_disk) {
-    FILE fp;
+    FILE *fp;
     char *path;
     if(alt_disk) {
         fp = alt_disk;
@@ -56,8 +57,8 @@ bool vdisk_read(int block_number, void *buffer, FILE *alt_disk) {
     }
 
     fseek(fp, BYTES_PER_BLOCK * block_number, SEEK_SET);
-    int bytes_read = fread(buffer, BLOCK_SIZE, 1, fp);
-    if(bytes_read != BLOCK_SIZE) {
+    int bytes_read = fread(buffer, BYTES_PER_BLOCK, 1, fp);
+    if(bytes_read != BYTES_PER_BLOCK) {
         fprintf(stderr, "Read Failed: Read %d bytes (should be %d)\n", 
             bytes_read, BYTES_PER_BLOCK);
     } 
@@ -88,7 +89,7 @@ bool vdisk_write(int block_number, void *content, int offset, int content_length
         return false;
     }
 
-    FILE fp;
+    FILE *fp;
     char *path;
     if(alt_disk) {
         fp = alt_disk;
@@ -102,11 +103,11 @@ bool vdisk_write(int block_number, void *content, int offset, int content_length
     }
 
     fseek(fp, BYTES_PER_BLOCK * block_number + offset, SEEK_SET);
-    int length = BLOCK_SIZE - offset;
+    int length = BYTES_PER_BLOCK - offset;
     if(content_length < length) {
         length = content_length;
     }
-    int bytes_written = fwrite(buffer, content_length, 1, fp);
+    int bytes_written = fwrite(content, length, 1, fp);
     if(bytes_written != length) {
         fprintf(stderr, "Write Failed: Wrote %d bytes (should be %d)\n", 
             bytes_written, length);

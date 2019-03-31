@@ -5,4 +5,4 @@
 #define BLOCKS_ON_DISK 4096 
 
 bool vdisk_read(int block_number, void *buffer, FILE *alt_disk);
-bool vdisk_write(int block_number, void *buffer, FILE *alt_disk);
+bool vdisk_write(int block_number, void *content, int offset, int content_length, FILE *alt_disk);
