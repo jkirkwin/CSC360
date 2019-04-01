@@ -401,3 +401,11 @@ Checkpointing:
             - One way to do this is to put the onus on the user to perform a manual
               checkpoint before ending a program which uses this library 
               (essentially like closing a file system) 
+
+We need to make sure that we're populating our data structures in memory properly
+from disk before users are able to actually use the file system. One simple way to do
+this is to define a user API which is a subset of the functions written here (essentially
+everything that would be made public were we doing this in Java) and in each of these fuctions
+check whether we have done this population (if not, do it then).
+Alternatively, we could ask that the user call a setup function before using the library. This
+falls in line nicely with a cleanup-style function mentioned in the checkpointing note above. 
