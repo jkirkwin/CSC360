@@ -173,3 +173,32 @@ out! Now to see if we can figure out why.
 Bingo: for some reason using "wb+" still overwrites the file. Solved by opening 
 in "rb+" mode instead. Unit tests for disk read and write passing on windows.
 
+I'm going to be moving on to file.c next. It looks like its development will be 
+coupled to that of the LLFS init() function, so we will place it here instead of
+in the disk controller as I initially planned.
+
+The first structure I implemented is the bit vector and api for the free list. I
+used http://www.mathcs.emory.edu/~cheung/Courses/255/Syllabus/1-C-intro/bit-array.html
+as a guide, but I used chars instead of ints because using a single byte at a 
+time felt more natural for this application. This API assumes that the current 
+free block vector in memory is correct. It does not involve the disk at all (yet). 
+
+Key question: Is it reasonable to make the restriction that every file must have
+a data block on creation? Answer: it is reasonable but unnecessary. With the 
+restriction, we need 2 bytes to uniquely identify an inode which is the same as
+without the restriction, but this gives a little more freedom. In the worst case
+(i.e. the case with the most inodes) we have no data blocks, and a disk full of 
+dense inode blocks. There are 4086 blocks available and we can get 16 inodes in 
+each block so we can bound the number of inodes above by 4086*16 = 65376. With 2
+bytes per inode number, we can uniquely identify all of these inodes. 
+
+We need to be able to point to the right inode entry for a file from a 
+directory entry. The specification says that each entry is 32 bytes, with 
+the first used for the inode number and the next 31 for a null terminated 
+filename. With one byte we can identify the block in which the correct inode
+is stored, but we cannot identify which inode it is with 100% accuracy as it
+is possible that two files might exist such that their inodes are in the 
+same block, they are in different directories, and they have the same file 
+name. To solve this, I plan to change the directory entry structure to have 
+filenames one character shorter (a small concession) in exchange for being able
+to easily and quickly identify the correct inode given a directory entry.
