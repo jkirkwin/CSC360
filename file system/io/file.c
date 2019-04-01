@@ -40,8 +40,7 @@ bool test_free_list_bit(short block_num) {
 void clear_free_list_bit(short block_num) {
     unsigned char byte = free_list[block_num/8];
     unsigned char mask = 1; // 0000 0001
-    mask = !(mask << block_num % 8);
-    printf("mask: %d\n", mask);
+    printf("mask: %x\n", mask);
     free_list[block_num/8] = byte & mask;
 }
 

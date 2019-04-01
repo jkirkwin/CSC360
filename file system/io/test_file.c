@@ -9,6 +9,7 @@
 #include <stdio.h>
 
 #include "file.h"
+#include "../disk/vdisk.h"
 
 #define NUM_TESTS 1
 
