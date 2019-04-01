@@ -7,9 +7,13 @@
  * A "Little Log File System" (LLFS)
  */ 
 
+#include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <stdio.h>
+
+#include "../disk/vdisk.h"
+#include "file.h"
 
 /*============================FREE LIST=======================================*/
 // TODO Ensure changes go to disk eventually
@@ -36,7 +40,8 @@ bool test_free_list_bit(short block_num) {
 void clear_free_list_bit(short block_num) {
     unsigned char byte = free_list[block_num/8];
     unsigned char mask = 1; // 0000 0001
-    mask = mask << block_num % 8;
+    mask = !(mask << block_num % 8);
+    printf("mask: %d\n", mask);
     free_list[block_num/8] = byte & mask;
 }
 
@@ -51,3 +56,30 @@ void set_free_list_bit(short block_num) {
 }
 
 /*=================================== INODE MAP ==============================*/
+
+
+
+
+/*=================================== LLFS API ===============================*/
+void initLLFS(FILE *alt_disk) {
+    // Clear disk
+    void *zeros = calloc(1, BYTES_PER_BLOCK);
+    for(int i = 0; i < BLOCKS_ON_DISK; i++){
+        vdisk_write(i, zeros, 0, BYTES_PER_BLOCK, alt_disk);
+    }
+
+    // Write superblock content
+    int sb_content[3] = { MAGIC_NUMBER, BLOCKS_ON_DISK, NUM_INODES };
+    vdisk_write(0, sb_content, 0, sizeof(int) * 3, alt_disk);
+
+    // Write free list bit vector using the buffer declared in the free list section
+    for(short i = 0; i < 10; i++) {
+        clear_free_list_bit(i); // First 10 blocks are reserved
+    }
+    for(short i = 10; i < BLOCKS_ON_DISK; i++) {
+        set_free_list_bit(i);
+    }
+
+    // TODO Write inode map/table/etc
+
+}

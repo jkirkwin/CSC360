@@ -202,3 +202,7 @@ same block, they are in different directories, and they have the same file
 name. To solve this, I plan to change the directory entry structure to have 
 filenames one character shorter (a small concession) in exchange for being able
 to easily and quickly identify the correct inode given a directory entry.
+
+Note: I have named my filesystem library "file.c" not "File.c" because I am not 
+an animal who mixes case conventions.
+
