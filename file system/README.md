@@ -392,4 +392,4 @@ Preventing us from having sparse inodes:
 
 When removing an inode, make sure to free up any indirect blocks allocated.
 
-Note: we may need want to use unsigned shorts for into the inode map. 
+Note: we may need want to use unsigned shorts for into the inode map.
