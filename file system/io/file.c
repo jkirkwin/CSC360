@@ -82,4 +82,17 @@ void initLLFS(FILE *alt_disk) {
 
     // TODO Write inode map/table/etc
 
+    // TODO Set up root dir
+
 }
+
+// TODO Read and write functionality
+
+// TODO create segment buffer to be sent to disk when full 
+// Need a way to ensure this is written on process end
+    // One way to do this is to put the onus on the user to perform a manual
+    // checkpoint before ending a program which uses this library 
+    // (essentially like closing a file system) 
+
+// In addition to writing out the segment, we will want to write updates made to
+// the free list and inode map since last checkpoint

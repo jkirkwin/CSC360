@@ -393,3 +393,11 @@ Preventing us from having sparse inodes:
 When removing an inode, make sure to free up any indirect blocks allocated.
 
 Note: we may need want to use unsigned shorts for into the inode map.
+
+Checkpointing:
+    - need a segment buffer to be sent to disk when full (this is a collection of
+    new stuff to add to the end of the log) 
+    - Need a way to ensure this is written before a calling process terminates so we don't lose progress
+            - One way to do this is to put the onus on the user to perform a manual
+              checkpoint before ending a program which uses this library 
+              (essentially like closing a file system) 
