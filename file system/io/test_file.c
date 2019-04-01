@@ -1,7 +1,7 @@
 /*
- * Unit tests for file system library
+ * Unit tests for file system library file.c/file.h
+ * Also requires the virtual disk api from /disk/
  */ 
-
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -11,21 +11,27 @@
 #include "file.h"
 #include "../disk/vdisk.h"
 
-#define NUM_TESTS 1
+#define NUM_TESTS 2
 
-// Test method declarations go here
+// ====  ==== ==== ====  Test method declarations go here ==== ==== ====
 bool test_free_list_api();
+bool test_init_LLFS();
 
 char *test_names[NUM_TESTS] = {
-    "test_free_list_api"
+    "test_free_list_api",
+    "test_init_LLFS"
 };
 
-// Helper methods go here
+// ==== ==== ==== ==== Helper methods go here ==== ==== ==== ==== ==== 
 
 
 int main(int argc, char **argv) {
+    printf("\nRunning tests for LLFS\n");
+    
     bool (*tests[NUM_TESTS]) ();
     tests[0] = test_free_list_api;
+    tests[1] = test_init_LLFS;
+
     
     int passed = 0, failed = 0;
     for(int i = 0; i < NUM_TESTS; i++) {
@@ -41,7 +47,7 @@ int main(int argc, char **argv) {
     printf("\nPassed %d/%d tests\n", passed, NUM_TESTS);
 }
 
-// Tests go here
+// ==== ==== ==== ==== Tests go here ==== ==== ==== ==== ==== 
 bool test_free_list_api() {
     short blocks_to_test[4] = {0,1,1000,4095};
     for(int i = 0; i < 4; i++) {
@@ -55,4 +61,9 @@ bool test_free_list_api() {
         }
     }
     return true;
+}
+
+bool test_init_LLFS() {
+    // TODO
+    return false;
 }

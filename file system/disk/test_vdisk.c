@@ -74,6 +74,8 @@ void clear_disk(char *disk_path) {
 }
 
 int main(int argc, char **argv) {
+    printf("\nRunning tests for Disk\n");
+
     bool (*tests[NUM_TESTS]) ();
     tests[0] = test_read_default_location;
     tests[1] = test_read_custom_location;
