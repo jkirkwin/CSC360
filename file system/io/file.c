@@ -12,8 +12,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#include "file.h"
 #include "../disk/vdisk.h"
+#include "file.h"
 
 /*============================FREE LISTS======================================*/
 // TODO Ensure changes go to disk eventually
@@ -22,10 +22,8 @@
 // Reference: http://www.mathcs.emory.edu/~cheung/Courses/255/Syllabus/1-C-intro/bit-array.html
 
 // bit = 1 if available, 0 if in use
-bitvector_t *free_block_list;
-bitvector_t *free_inode_list;
-// free_block_list.n = 0;
-// free_block_list.next_available = 0;
+bitvector_t free_block_list;
+bitvector_t free_inode_list;
 
 /*
  * Returns true iff block is not being used
@@ -77,6 +75,11 @@ void set_vector_bit(bitvector_t vector, short index) {
  * 5. Creates a root directory
  */ 
 void initLLFS(FILE *alt_disk) {
+    // TODO Init free lists
+    free_block_list = {unsigned char[50], 0, 0};    
+
+    // TODO Init imap
+   
     // Clear disk
     void *zeros = calloc(1, BYTES_PER_BLOCK);
     for(int i = 0; i < BLOCKS_ON_DISK; i++){
@@ -89,12 +92,12 @@ void initLLFS(FILE *alt_disk) {
 
     // Write free list bit vector using the buffer declared in the free list 
     for(short i = 0; i < 10; i++) {
-        clear_free_list_bit(i); // First 10 blocks are reserved 
+        clear_vector_bit(free_block_list, i); // First 10 blocks are reserved 
     }
     for(short i = 10; i < BLOCKS_ON_DISK; i++) {
-        set_free_list_bit(i);
+        set_vector_bit(free_block_list, i);
     }
-    vdisk_write(1, free_list, 0, BYTES_PER_BLOCK, alt_disk);
+    vdisk_write(1, free_block_list.vector, 0, BYTES_PER_BLOCK, alt_disk);
 
     // TODO Write inode map/table/etc
 
