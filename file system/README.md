@@ -180,7 +180,7 @@ I'm going to be moving on to file.c next. It looks like its development will be
 coupled to that of the LLFS init() function, so we will place it here instead of
 in the disk controller as I initially planned.
 
-### Starting the File System: Free List Inodes
+### Starting the File System: Free List & Inodes
 
 Note: I have named my filesystem library "file.c" not "File.c" because I am not 
 an animal who mixes case conventions.
@@ -263,7 +263,16 @@ looking up some file within a directory. The case in question is if two inodes
 in the same block correspond to files with the same name with different parent
 directories. This way we won't choose the wrong one.
 
+### Implementing Inode Stuff
 
+The first thing to do is to re-factor my free list bitvector from before to be a
+generic 1 block bit vector so I can use it for both block and inode freelists.
+
+    Created a bitvector_t struct for these and changed the API accordingly.
+
+Since we have an inode free list, the only thing left in the imap_t struct was a
+short array, so we will just use a short array explicitly as the imap instead of
+wrapping it in a struct.
 
 =====
 OLD INODE STUFF [DELETE WHEN YOU'RE CONFIDENT THE ABOVE WILL WORK]

@@ -50,13 +50,17 @@ int main(int argc, char **argv) {
 // ==== ==== ==== ==== Tests go here ==== ==== ==== ==== ==== 
 bool test_free_list_api() {
     short blocks_to_test[4] = {0,1,1000,4095};
+    bitvector_t vect;
+    vect.n = 0;
+    vect.next_available = 0; 
+    // unsigned char free_list[BYTES_PER_BLOCK];
     for(int i = 0; i < 4; i++) {
-        clear_free_list_bit(blocks_to_test[i]);
-        if(test_free_list_bit(blocks_to_test[i])) {
+        clear_vector_bit(vect, blocks_to_test[i]);
+        if(test_vector_bit(vect, blocks_to_test[i])) {
             return false;
         }
-        set_free_list_bit(blocks_to_test[i]);
-        if(!test_free_list_bit(blocks_to_test[i])) {
+        set_vector_bit(vect, blocks_to_test[i]);
+        if(!test_vector_bit(vect, blocks_to_test[i])) {
             return false;
         }
     }
