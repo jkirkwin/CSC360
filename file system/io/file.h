@@ -13,6 +13,17 @@
 
 #define MAX_FILENAME_LENGTH 30
 
+
+
+// From assignment 2
+#define VERBOSE // TODO Add as a compilation option instead of toggling here 
+
+#ifdef VERBOSE
+#define VERBOSE_PRINT(S, ...) printf (S, ##__VA_ARGS__);
+#else
+#define VERBOSE_PRINT(S, ...) ;
+#endif
+
 /* ========================= INode API =========================*/
 
 typedef struct inode {

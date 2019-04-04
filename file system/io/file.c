@@ -15,14 +15,6 @@
 #include "../disk/vdisk.h"
 #include "file.h"
 
-// From assignment 2
-#define VERBOSE // Make this a param to be set at compilation
-
-#ifdef VERBOSE
-#define VERBOSE_PRINT(S, ...) printf (S, ##__VA_ARGS__);
-#else
-#define VERBOSE_PRINT(S, ...) ;
-#endif
 
 /*============================FREE LISTS======================================*/
 // TODO Ensure changes go to disk eventually
@@ -164,17 +156,10 @@ bool is_dir(short inode_id) {
 }
 
 /*
- * Sets the dir flag to 0
- */ 
-short strip_dir_bit(short inode_id) {
-    return inode_id & 0x7FFF;
-}
-
-/*
- * A wrapper for strip dir bit to make code more readible
+ * Gives the key used in the inode free list for an inode given its id
  */ 
 short get_inode_free_list_key(short inode_id) {
-    return strip_dir_bit(inode_id);
+    return inode_id & 0x0FFF;
 }
 
 /*=================================== LLFS API ===============================*/
@@ -214,7 +199,7 @@ void init_LLFS(FILE* alt_disk) {
         set_vector_bit(free_inode_list, i);        
         set_vector_bit(free_block_list, i);
     }
-    // Mark 1st 10 blocks as reserved
+
     for(i = 0; i < RESERVED_BLOCKS; i++) {
         clear_vector_bit(free_block_list, i);
     }
@@ -232,9 +217,9 @@ void init_LLFS(FILE* alt_disk) {
     clear_vector_bit(free_inode_list, get_inode_free_list_key(ROOT_ID));
     inode_t *root_inode = create_inode(0, ROOT_ID, ROOT_ID, NULL, 0, 
             INODE_FIELD_NO_DATA, INODE_FIELD_NO_DATA);
-    vdisk_write(get_block_key_from_id(ROOT_ID), root_inode, 
+    vdisk_write(get_block_key_from_id(ROOT_ID) + RESERVED_BLOCKS, root_inode, 
             get_offset_from_inode_id(ROOT_ID), sizeof(inode_t), alt_disk);
-    
+
     // Write free lists and inode map to disk
     vdisk_write(1, free_block_list->vector, 0, BITS_PER_BIT_VECTOR, alt_disk);
     vdisk_write(2, free_inode_list->vector, 0, BITS_PER_BIT_VECTOR, alt_disk);
@@ -279,6 +264,7 @@ void print_inode_details(inode_t* inode) {
     short id = inode->id;
     printf("\t hex id: %x\n", id&0xFFFF);
     printf("\t decimal id: %d\n", id);
+    printf("\t free list key: %d\n", get_inode_free_list_key(id));
     printf("\t block key: %d\n", get_block_key_from_id(id));
     printf("\t offset: %d\n", get_offset_from_inode_id(id));
     printf("\t is_dir: %s\n", is_dir(id) ? "true" : "false");

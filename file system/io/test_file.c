@@ -11,16 +11,25 @@
 #include "file.h"
 #include "../disk/vdisk.h"
 
-#define NUM_TESTS 7
+#define NUM_TESTS 8
 
 // ====  ==== ==== ====  Test method declarations go here ==== ==== ====
+
+// Top Level
 bool test_free_list_api();
 bool test_create_inode();
 bool test_is_dir();
 bool test_get_block_key_from_id();
 bool test_generate_inode_id();
 bool test_get_offset_from_inode_id();
+bool test_get_inode_free_list_key();
 bool test_init_LLFS();
+
+// Helper
+bool test_superblock_write();
+bool test_init_free_lists();
+bool test_imap_init();
+bool test_root_read();
 
 char *test_names[NUM_TESTS] = {
     "test_free_list_api",
@@ -29,6 +38,7 @@ char *test_names[NUM_TESTS] = {
     "test_get_block_key_from_id",
     "test_generate_inode_id",
     "test_get_offset_from_inode_id",
+    "test_get_inode_free_list_key",
     "test_init_LLFS"
 };
 
@@ -45,7 +55,8 @@ int main(int argc, char **argv) {
     tests[3] = test_get_block_key_from_id;
     tests[4] = test_generate_inode_id;
     tests[5] = test_get_offset_from_inode_id;
-    tests[6] = test_init_LLFS;
+    tests[6] = test_get_inode_free_list_key;
+    tests[7] = test_init_LLFS;
 
     int passed = 0, failed = 0;
     for(int i = 0; i < NUM_TESTS; i++) {
@@ -199,10 +210,127 @@ bool test_generate_inode_id() {
     return true;
 }
 
-bool test_init_LLFS() {
+bool test_get_inode_free_list_key() {
     // TODO
-    printf("\n----\n");
-    init_LLFS(NULL);
+    short id1 = 0x1123; // key should be 0x123
+    short id2 = 0x1000; // key should be 0
+    short id3 = 0x0FFF; // key should be 0xFFF
+    if(get_inode_free_list_key(id1) != 0x123) {
+        return false;
+    }
+    if(get_inode_free_list_key(id2) != 0) {
+        return false;
+    }
+    if(get_inode_free_list_key(id3) != 0xFFF) {
+        return false;
+    }
+    return true;
+}
 
+/*
+ * The init function does a whole load of stuff, so this test is going to be 
+ * pretty involved. 
+ * There are a handful of actions that init is responsible for, so we'll make 
+ * this test accordingly modular.
+ * Those actions are:
+ *      1. Writes the superblock on disk
+ *      2. Sets up both bitmaps
+ *      3. Sets up the inode map
+ *      4. Creates a root directory
+ */ 
+bool test_init_LLFS() {
+    VERBOSE_PRINT("\n"); // Prettify output when combined with LLFS output
+    init_LLFS(NULL);
+    if(!test_superblock_write()) {
+        printf("  Failed test_superblock_write  ");
+        return false;
+    }
+    if(!test_init_free_lists()) {
+        printf("  Failed test_init_free_lists  ");
+        return false;
+    }
+    if(!test_imap_init()) {
+        printf("  Failed test_imap_init  ");
+        return false;
+    }
+    if(!test_root_read()) {
+        printf("  Failed test_root_read  ");
+        return false;
+    }
+    return true;
+}
+
+/*
+ * Helper for test_init_LLFS
+ */ 
+bool test_superblock_write() {
+    // Read block 0 of the disk and verify that the 3 entries are correct
+    int content[BYTES_PER_BLOCK/sizeof(int)];
+    int oracle[3] = {MAGIC_NUMBER, BLOCKS_ON_DISK, NUM_INODES};
+    vdisk_read(0, content, NULL);
+    // printf("MAGIC_NUMBER: %d\n", content[0]);
+    // printf("BLOCKS_ON_DISK: %d\n", content[1]);
+    // printf("NUM_INODES: %d\n", content[2]);
+    for(short i = 0; i < 3; i++) {
+        if(content[i] != oracle[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/*
+ * Helper for test_init_LLFS
+ * Relies on bitvector API, tested in test_free_list_api()
+ */ 
+bool test_init_free_lists() {
+    bitvector_t *free_block_list = (bitvector_t *) malloc(sizeof(bitvector_t));
+    bitvector_t *free_inode_list = (bitvector_t *) malloc(sizeof(bitvector_t));
+    vdisk_read(1, free_block_list->vector, NULL);
+    vdisk_read(2, free_inode_list->vector, NULL);
+    short i;
+
+    // only reserved blocks and imap blocks should be marked as used
+    int total_blocks_used = RESERVED_BLOCKS + NUM_INODE_BLOCKS;
+    for(i = 0; i < total_blocks_used; i++) {
+        if(test_vector_bit(free_block_list, i)) {
+            printf("Block %d should not be available\n", i);
+            return false;
+        }
+    } 
+    for(i = total_blocks_used; i < BLOCKS_ON_DISK; i++) {
+        if(!test_vector_bit(free_block_list, i)) {
+            printf("Block %d should be available\n", i);
+            return false;
+        }
+    }
+    
+    // only the root inode should be marked as used
+    if(test_vector_bit(free_inode_list, 0)) {
+        printf("Inode 0 should not be available\n");
+        return false;
+    }
+    for(i = 1; i < NUM_INODES; i++) {
+        if(!test_vector_bit(free_inode_list, i)) {
+            printf("Inode %d should be available\n", i);
+            return false;
+        }
+    }
+    return true;
+}
+
+/*
+ * Helper for test_init_LLFS
+ */ 
+bool test_imap_init() {
+    // TODO
+    return false;
+}
+
+/*
+ * Helper for test_init_LLFS
+ */ 
+bool test_root_read() {
+    // TODO
     return false;
 }
