@@ -29,7 +29,6 @@ bool test_init_LLFS();
 bool test_superblock_write();
 bool test_init_free_lists();
 bool test_imap_init();
-bool test_root_read();
 
 char *test_names[NUM_TESTS] = {
     "test_free_list_api",
@@ -253,10 +252,7 @@ bool test_init_LLFS() {
         printf("  Failed test_imap_init  ");
         return false;
     }
-    if(!test_root_read()) {
-        printf("  Failed test_root_read  ");
-        return false;
-    }
+    VERBOSE_PRINT("\t\t"); // Formatting
     return true;
 }
 
@@ -304,7 +300,7 @@ bool test_init_free_lists() {
             return false;
         }
     }
-    
+
     // only the root inode should be marked as used
     if(test_vector_bit(free_inode_list, 0)) {
         printf("Inode 0 should not be available\n");
@@ -323,14 +319,39 @@ bool test_init_free_lists() {
  * Helper for test_init_LLFS
  */ 
 bool test_imap_init() {
-    // TODO
-    return false;
-}
+    // Imap is stored in block 3. There are 256 shorts as entries.
+    short imap[NUM_INODE_BLOCKS];
+    vdisk_read(3, imap, NULL);
+    short i;
 
-/*
- * Helper for test_init_LLFS
- */ 
-bool test_root_read() {
-    // TODO
-    return false;
+    // Each entry should point to a consecutive block to start with.
+    for(i = 0; i < NUM_INODE_BLOCKS; i++) {
+        if(imap[i] != RESERVED_BLOCKS + i) {
+            return false;
+        }
+    }
+    
+    // Retrieve and verify the root's inode.
+    inode_t inode_block[INODES_PER_BLOCK];
+    vdisk_read(imap[0], inode_block, NULL);
+    inode_t* root_inode = inode_block;
+    if(ROOT_ID != root_inode->id) {
+        return false;
+    }
+    if(0 != root_inode->file_size) {
+        return false;
+    }
+    if(ROOT_ID != root_inode->parent_id) {
+        return false;
+    }
+    if(INODE_FIELD_NO_DATA != root_inode->direct[0]) {
+        return false;
+    }
+    if(INODE_FIELD_NO_DATA != root_inode->single_ind_block) {
+        return false;
+    }
+    if(INODE_FIELD_NO_DATA != root_inode->single_ind_block) {
+        return false;
+    }
+    return true;
 }

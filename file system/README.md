@@ -1,103 +1,42 @@
 # CSC 360 Assignment 4: Little Log Structured File System (LLFS)
 
-<!-- APIs and notes -->
+## APIs and spec notes
 
-## vDisk
-
-
+### <u>vDisk</u>
 * We use a file called "vdisk" as a virtual disk for this assignment
-* The vdisk is located in /apps/
-* Deleting the vdisk lets us start from scratch (might be useful for some testing)
+* Deleting the vdisk lets us start from scratch 
+* vdisk is usually assumed to be in the current directory, but read/write have been parameterized to take a vdisk FILE stream pointer as well
+* blocks are 512 bytes
+* there are 4096 blocks on the disk (indexed from 0)
 
-Block size : 512 bytes <br>
-Number of blocks on disk : 4096 (numbered 0 through 4095)
+The ```disk/``` directory:  
+* ```disk/vdisk.c``` is the disk controller.
+* ```disk/vdisk.h``` is a header for the disk controller.
+* ```disk/test_vdisk.c``` holds unit tests for the disk
 
 
-### __```/disk/vdisk.c```__
-
-```bool read(int block_number, void *buffer, char *alt_disk_path)```
-
-Use
-
-    Fills a buffer (passed as a param) of size 512 that was passed in with the specified block's contents
-
-Params
-
-    1. the block number to read from
-    2. a buffer to store the block's content in
-    3. An optional path to an alternate disk on which to perform the operation. 
-       If none is specified, the operation is performed on the vdisk file located in the current directory 
-
+### ```/disk/vdisk.c```
+```bool vdisk_read(int block_number, void *buffer, FILE *alt_disk)```
     
-Return
+    Lets the file system read one block from the specified vdisk into a buffer provided. If no disk file is given, the vdisk file in the current directory is used. 
 
-    true if successful, false otherwise
+```bool vdisk_write(int block_number, void *content, int offset, int content_length, FILE *alt_disk)```
 
-```bool write(int block_number, void *buffer, char *alt_disk_path)```
-
-Use:
-
-    Writes the specified buffer content to the vdisk at the block number specified
-
-Params:
-
-    1. the block number to write to
-    2. a 512 byte argument (or a pointer to such a buffer)
-    3. An optional path to an alternate disk on which to perform the operation. 
-       If none is specified, the operation is performed on the vdisk file located in the current directory 
-
-Return: 
-
-    true if successful, false otherwise    
+    Lets the file system write one block to the disk from the content buffer. Content is truncated to prevent overflowing the one block limit. Offsetting content from the start of the specified block is supported. If no disk file is given, the vdisk file in the current directory is used.
 
 
----
+### __LLFS__
 
-## LLFS
-
-```int init_LFS(char* alt_disk_path)```
-
-Note:
-
-    I changed from spec to start with a lowercase 'i' instead of being horrible
-
-Use:
-
-    The disk is wiped and formatted appropriately as a brand new disk
-
-Params:
-
-    1.  An optional path to analternate disk on which to perform the operation. 
-        If none is specified, the operation is performed on the vdisk file located in the current directory 
-
-Return:
-
-    true if successful, false otherwise    
-
-
-```function_signature```
-
-Use
-
-    Description of function
-
-Params
-
-    Parameters go here
-
-Return
-
-    Return value description goes here
+TODO Fill this out similarly to how the vdisk section is done.
 
 <!-- Progress Journal -->
 
-## My "Journey"
+## My "Journey" as Yvonne likes to say
 
-### The disk
+### <u>The disk</u>
 I ran into an issue part way through creating my disk controller: my machine 
 decided to stop recognizing includes to libraries like unistd, stdio, stdlib, 
 and stdbool. 
-
 
 I decided to just power through and do all the compilation and testing on the 
 ssh server, pulling from my github repo for this class to get the source files
@@ -139,7 +78,8 @@ I'm going to be moving on to file.c next. It looks like its development will be
 coupled to that of the LLFS init() function, so we will place it here instead of
 in the disk controller as I initially planned.
 
-### Starting the File System: Free List & Inodes
+
+### <u>Starting the File System: Free List & Inodes</u>
 
 Note: I have named my filesystem library "file.c" not "File.c" because I am not 
 an animal who mixes case conventions.
@@ -215,9 +155,6 @@ in to memory (in the worst case). This will need to be implemented fairly simply
 if for no other reason than that I don't have a whole lot of time to do this 
 assignment. Most likely, I will end up implementing this as a FIFO array based 
 queue of inode structs. 
-This is a TODO for when I have gotten further with the 
-implementation of the rest of the inodes stuff and have a better feel for how
-best to do it.
 
 We will use one of the remaining bits in the 2 byte inode number to indicate 
 whether the corresponding file is a directory.
@@ -228,7 +165,7 @@ looking up some file within a directory. The case in question is if two inodes
 in the same block correspond to files with the same name with different parent
 directories. This way we won't choose the wrong one.
 
-### Implementing Inode Stuff
+### <u>Implementing Inode Stuff</u>
 
 The first thing to do is to re-factor my free list bitvector from before to be a
 generic 1 block bit vector so I can use it for both block and inode freelists.
@@ -267,33 +204,57 @@ right after initializing; that's just gross.
     structures are correct on disk and in memory this should not pose any issues.
 
     I added the root creation functionality and added writes to disk. A few bugs
-     were found while probing for sanity checks, now for the actual testing!
+    were found while probing for sanity checks, now for the actual testing!
 
-        The init function has lots of responsibilities so I broke the test up 
-        into 4 parts. Parts 1 and 2 are passing, [TODO] 3 and 4 need to be 
-        implemented. 
+    The init function has lots of responsibilities so I broke the test up 
+    into 3 parts. All three now pass (after some silly fixes).
+
+
+### <u>Starting on LLFS Functionality</u>
 
 [TODO]
-Once we have this done, we need to implement the test for init_LLFS and then we 
-can move on to support writing to files. For this we will need to come up with an
-API for our file system (read and write for now should be sufficient). We also 
-need a checkpoint buffer in which to store changes. At its heart, this should be
-an array of blocks, in the order that we would like to write them. We can choose 
-to write this buffer to disk when it gets full, but we need to be careful of only 
-sending part of some transaction to disk. A better way to go would be to check before
-starting each write whether it will cause the buffer to fill/overflow. If so, write the 
-current content (and update the inode map, inode free list, and block free list), clear
-the buffer and continue. Another thing we need to watch out for is single transactions
-which can cause the buffer to overflow (i.e. writing a file larger than our buffer). In
-this case, the best way to go seems to be to split this up into separate transactions.
+We can now move on to adding support for writing to files. For this we will need
+to come up with an API for our file system (read and write should be sufficient 
+for now). We also need a checkpoint buffer in which to store changes. At its 
+heart, this should be an array of blocks, in the order that we would like to 
+write them. We can choose to write this buffer to disk when it gets full, but we
+need to be careful of only sending part of some transaction to disk. A better 
+way to go would be to check before starting each write whether it will cause the
+buffer to fill/overflow. If so, write the current content (and update the inode 
+map, inode free list, and block free list), clear the buffer and continue. 
+Another thing we need to watch out for is single transactions which can cause 
+the buffer to overflow (i.e. writing a file larger than our buffer). In this 
+case, the best way to go seems to be to split it up into separate transactions.
+
+    The first thing is the API. For now, the only functionality I want to implement
+    is reading and writing non-directory files to root.
+
+    Once that's working we need to add in the ability to make subdirectories of 
+    root.
+
+    From there we should add in the ability to delete files/dirs from root
+
+    Next up is porting the 3 functions above so that they can take place 
+    anywhere in the system, i.e. so that we can read any file in any directory,
+    write to any directory, and delete from any leaf node (that is, any file or
+    any empty directory).  
 
 [TODO] a potentially useful utility would be a manual "flush" - i.e. forcing us to 
 push all changes etc to disk and make things consistent. This would be useful in init as
 well as in the case above and when implementing a cleanup/teardown function.
-  
 
 [TODO] It is also worth noting here that we need to make sure that root cannot 
 be deleted. 
+
+[TODO] Another thing to we need to figure out is the inode cache that we're 
+going to use. It feels easiest to hold an array of arrays of inode_t pointers,
+each sub-array corresponding to one of the inode blocks. I'm also going to need
+a policy on how to manage it when it gets full. One option would be to have the 
+outer array act as a queue (of sorts), and when it gets full we delete the 
+oldest block of inodes to make room for another one. This would let us do either
+a FIFO policy, or a LRU policy if we allow shuffling the queue when we use 
+something already in it. This seems like a better way to go, but it is a little
+more complicated.
 
 ### Misc Notes
 
