@@ -15,6 +15,15 @@
 #include "../disk/vdisk.h"
 #include "file.h"
 
+// From assignment 2
+#define VERBOSE // Make this a param to be set at compilation
+
+#ifdef VERBOSE
+#define VERBOSE_PRINT(S, ...) printf (S, ##__VA_ARGS__);
+#else
+#define VERBOSE_PRINT(S, ...) ;
+#endif
+
 /*============================FREE LISTS======================================*/
 // TODO Ensure changes go to disk eventually
 // TODO Ensure that this is loaded correctly
@@ -59,7 +68,6 @@ void set_vector_bit(bitvector_t *vector, short index) {
 }
 
 /*============================ INODES AND IMAP ==============================*/
-// TODO
 
 // Maps inode block numbers to their location on disk
 short imap[NUM_INODE_BLOCKS];
@@ -155,26 +163,35 @@ bool is_dir(short inode_id) {
     return mask & inode_id;
 }
 
+/*
+ * Sets the dir flag to 0
+ */ 
+short strip_dir_bit(short inode_id) {
+    return inode_id & 0x7FFF;
+}
+
+/*
+ * A wrapper for strip dir bit to make code more readible
+ */ 
+short get_inode_free_list_key(short inode_id) {
+    return strip_dir_bit(inode_id);
+}
+
 /*=================================== LLFS API ===============================*/
 /*
  * Wipes and formats a fresh virtual disk. Will do so in the current working 
  * directory if alt_disk is omitted.
  * 
  * This formatting entails the following:
- * 1. Clears the vdisk file
- * 2. Writes the magic number (to identify formatting as LLFS), number of blocks 
+ * 1. Writes the magic number (to identify formatting as LLFS), number of blocks 
  *    on the disk, and the number of inodes which can be allowed to exist to the
  *    superblock
- * 3. Sets up bitmaps for the freelists for inodes and disk blocks
- * 4. Sets up the inode map
- * 5. Creates a root directory
+ * 2. Sets up bitmaps for the freelists for inodes and disk blocks
+ * 3. Sets up the inode map
+ * 4. Creates a root directory
  */ 
-void initLLFS(FILE* alt_disk) {
-    // Clear disk
-    void *zeros = calloc(1, BYTES_PER_BLOCK);
-    for(int i = 0; i < BLOCKS_ON_DISK; i++){
-        vdisk_write(i, zeros, 0, BYTES_PER_BLOCK, alt_disk);
-    }
+void init_LLFS(FILE* alt_disk) {
+    VERBOSE_PRINT("Formatting Disk\n");
 
     // Write superblock content
     int sb_content[3] = { MAGIC_NUMBER, BLOCKS_ON_DISK, NUM_INODES };
@@ -189,12 +206,12 @@ void initLLFS(FILE* alt_disk) {
     }
     free_block_list->n = 0;    
     free_inode_list->n = 0;
-    
+    free_block_list->next_available = 0;
+
     int i;
-    int chars_per_bitvector = BITS_PER_BIT_VECTOR/8;
     // Mark all blocks and inodes as free
-    for(i = 0; i < chars_per_bitvector; i++) {
-        set_vector_bit(free_block_list, i);        
+    for(i = 0; i < BITS_PER_BIT_VECTOR; i++) {
+        set_vector_bit(free_inode_list, i);        
         set_vector_bit(free_block_list, i);
     }
     // Mark 1st 10 blocks as reserved
@@ -210,17 +227,20 @@ void initLLFS(FILE* alt_disk) {
         free_block_list->next_available++;
     }
 
-    // TODO Set up root dir
-        // Need an inode for it (remember to set the directory bit)
-            // Update next_available in free_inode_list
-        // Need a data block for it (mark as used and write to disk)
-    
-    // inode_t *root_inode = create_inode(0, )
+    // Set up root dir (its its own parent, as per linux convention) and write to disk immediately
+    free_inode_list->next_available = 1; 
+    clear_vector_bit(free_inode_list, get_inode_free_list_key(ROOT_ID));
+    inode_t *root_inode = create_inode(0, ROOT_ID, ROOT_ID, NULL, 0, 
+            INODE_FIELD_NO_DATA, INODE_FIELD_NO_DATA);
+    vdisk_write(get_block_key_from_id(ROOT_ID), root_inode, 
+            get_offset_from_inode_id(ROOT_ID), sizeof(inode_t), alt_disk);
     
     // Write free lists and inode map to disk
     vdisk_write(1, free_block_list->vector, 0, BITS_PER_BIT_VECTOR, alt_disk);
     vdisk_write(2, free_inode_list->vector, 0, BITS_PER_BIT_VECTOR, alt_disk);
     vdisk_write(3, imap, 0,  NUM_INODE_BLOCKS * sizeof(short), alt_disk);
+
+    VERBOSE_PRINT("Formatting done.\n");
 }
 
 // TODO Read and write functionality
@@ -252,4 +272,16 @@ bitvector_t* _init_free_inode_list() {
     free_inode_list->n = 0;
     free_inode_list->next_available = 10;
     return free_inode_list;
+}
+
+void print_inode_details(inode_t* inode) {
+    printf("Inode Details:\n");
+    short id = inode->id;
+    printf("\t hex id: %x\n", id&0xFFFF);
+    printf("\t decimal id: %d\n", id);
+    printf("\t block key: %d\n", get_block_key_from_id(id));
+    printf("\t offset: %d\n", get_offset_from_inode_id(id));
+    printf("\t is_dir: %s\n", is_dir(id) ? "true" : "false");
+    printf("\t parent id: %d\n", inode->parent_id);
+    printf("\t file size: %d\n", inode->file_size);
 }

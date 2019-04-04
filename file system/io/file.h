@@ -9,6 +9,7 @@
 #define INODES_PER_BLOCK 16
 #define NUM_INODE_BLOCKS 256
 #define INODE_FIELD_NO_DATA -1
+#define ROOT_ID 0x1000
 
 #define MAX_FILENAME_LENGTH 30
 
@@ -23,12 +24,14 @@ typedef struct inode {
     short double_ind_block; // the block number, not the actual disk address
 } inode_t;
 
-inode_t *create_inode(int file_size, short id, short parent_id, short* direct,
-    short num_direct, short single_ind_block, short double_ind_block);
 bool is_dir(short inode_id);
+short get_inode_free_list_key(short inode_id);
 unsigned char get_block_key_from_id(short inode_id);
 unsigned char get_offset_from_inode_id(short inode_id);
+short strip_dir_bit(short inode_id);
 short generate_inode_id(bool is_dir);
+inode_t *create_inode(int file_size, short id, short parent_id, short* direct,
+    short num_direct, short single_ind_block, short double_ind_block);
 
 
 /* =========================== Directories =============================*/
@@ -54,8 +57,9 @@ void clear_vector_bit(bitvector_t *vector, short index);
 
 /* =========================== LLFS API ===========================*/
 
-void initLLFS(FILE* alt_disk);
+void init_LLFS(FILE* alt_disk);
 
 
 /* =========================== Testing ===========================*/
 bitvector_t* _init_free_inode_list();
+void print_inode_details(inode_t* inode);

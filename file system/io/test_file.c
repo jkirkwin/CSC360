@@ -77,6 +77,14 @@ bool test_free_list_api() {
         if(!test_vector_bit(vect, blocks_to_test[i]) || vect->n != 0) {
             return false;
         }
+        clear_vector_bit(vect, blocks_to_test[i]);
+        if(test_vector_bit(vect, blocks_to_test[i]) || vect->n != 1) {
+            return false;
+        }
+        set_vector_bit(vect, blocks_to_test[i]);
+        if(!test_vector_bit(vect, blocks_to_test[i]) || vect->n != 0) {
+            return false;
+        }
     }
     return true;
 }
@@ -193,6 +201,8 @@ bool test_generate_inode_id() {
 
 bool test_init_LLFS() {
     // TODO
-    printf("UNIMPLEMENTED ");
+    printf("\n----\n");
+    init_LLFS(NULL);
+
     return false;
 }

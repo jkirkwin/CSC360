@@ -291,15 +291,26 @@ support first, since we need to actually create the root directory.
         - extracting an inode's block number (imap key) from its id
         - extracting an inode's offset given its id
 
-Verifed that tests pass for all of them on windows.
+Verifed that tests pass for all of them on windows and the ssh server.
 
-[TODO] The next thing to do is create the root directory. This will entail setting up an
+The next thing to do is create the root directory. This will entail setting up an
 inode for it, adding this to the inode map, and adding this to the inode free list.
 We may also decide to add a data block for the directory immediately, as any change 
 to the file system (i.e. creating a new file) will entail creating one for root. 
 All this will need to be written to disk immediately, as we don't want a dirty log
 right after initializing; that's just gross.
 
+    In the process of doing this, I ran the init function for the first time and
+    noticed something not so great: I have a loop to write every block of the 
+    disk with zeros, but this takes about 22 seconds! Instead of doing this 
+    manually and bypassing the disk api (which we wouldn't be able to do in real
+    life) I've decided to just not zero out the whole thing. As long as the data
+    structures are correct on disk and in memory this should not pose any issues.
+
+    I added the root creation functionality and added writes to disk. A few bugs
+     were found while probing for sanity checks, now for the actual testing! (TODO)
+
+[TODO]
 Once we have this done, we need to implement the test for init_LLFS and then we 
 can move on to support writing to files. For this we will need to come up with an
 API for our file system (read and write for now should be sufficient). We also 
@@ -313,7 +324,7 @@ the buffer and continue. Another thing we need to watch out for is single transa
 which can cause the buffer to overflow (i.e. writing a file larger than our buffer). In
 this case, the best way to go seems to be to split this up into separate transactions.
 
-TODO a potentially useful utility would be a manual "flush" - i.e. forcing us to 
+[TODO] a potentially useful utility would be a manual "flush" - i.e. forcing us to 
 push all changes etc to disk and make things consistent. This would be useful in init as
 well as in the case above and when implementing a cleanup/teardown function.
   
