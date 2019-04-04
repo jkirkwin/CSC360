@@ -269,10 +269,20 @@ The first thing to do is to re-factor my free list bitvector from before to be a
 generic 1 block bit vector so I can use it for both block and inode freelists.
 
     Created a bitvector_t struct for these and changed the API accordingly.
+    Unit test was modifed and still passes
 
 Since we have an inode free list, the only thing left in the imap_t struct was a
 short array, so we will just use a short array explicitly as the imap instead of
 wrapping it in a struct.
+
+Started working on the init function again, but we need some inode and directory
+support first, since we need to actually create the root directory.
+
+    Added functions for
+        - making inode_t structs
+        - generating an inode id to be used for a new inode
+        - determining if an inode is a directory 
+        - extracting an inodes block number (imap key) from its id
 
 =====
 OLD INODE STUFF [DELETE WHEN YOU'RE CONFIDENT THE ABOVE WILL WORK]
