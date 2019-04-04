@@ -214,11 +214,9 @@ more specific explanation.
     holds the same name-to-inode-number mapping. Thus, through indirection, 
     LFS avoids the recursive update problem."
 
-A new, even more workable plan!
-
 I am doing my best to stick to the spec, and in the directory entry 
 description it says that only 1 byte will be used to identify the inode
-corresponding to a given file in that directory. 
+corresponding to a given file in that directory.
 
 Initially I assumed that this single byte would be the inode number, which
 would limit us to 256 inodes. This seemed like a very small maximum 
@@ -229,16 +227,24 @@ inodes instead. This does come with the space overhead of making 256 data
 blocks unavailable for inodes which may be unused, but it allows many more 
 inodes and ensures that when we do have a large number of files, the inodes
 are guaranteed to be stored in a maximally compact way without the need for
-complex logic and overhead during cleanup. 
+complex logic and overhead during cleanup.
 
 With the approach, inode numbers will be 2 bytes. 8 bits allow us find the 
 block containing the inode via the inode map, and 4 other bits give the 
-index of the indode within its block. 
+index of the indode within its block. We also store the directory flag in one of
+the other 4 bits.
 
 This means we will need one inode map entry per block of 16 inodes. There 
 are 256 blocks of inodes, and each entry is 2 bytes (the block number) so we
 will need a total of 512 bytes for the inode map. This can live in block 
 number 3 on disk (which is part of the reserved section).
+
+Inodes are numbered from 0 to 4095, and their id entries are of the form:
+[Dir Flag][Unused][Unused][Unused] [Block #][Block #][Block #][Block #] (high byte) 
+[Block #][Block #][Block #][Block #] [Offset][Offset][Offset][Offset] (low byte)
+
+Thus, by clearing the dir flag and 3 unused bits, we get the index of the inode
+in the free list.
 
 Block number 2 will contain an inode free list analogous to the block free 
 list detailed above. It will be a bit vector of size 4096 (one for each 
@@ -282,143 +288,40 @@ support first, since we need to actually create the root directory.
         - making inode_t structs
         - generating an inode id to be used for a new inode
         - determining if an inode is a directory 
-        - extracting an inodes block number (imap key) from its id
+        - extracting an inode's block number (imap key) from its id
+        - extracting an inode's offset given its id
 
-=====
-OLD INODE STUFF [DELETE WHEN YOU'RE CONFIDENT THE ABOVE WILL WORK]
-=====
-Next up was figuring out some things about inodes:
-    1. Will they all be statically allocated at spin-up or generated and destroyed 
-       dynamically as users create and delete files?
-    2. Do we need a free list for inodes as well?
-    3. How should the inode map work?
-    4. How are we going to assign inode numbers?
-    5. How are we going to find a file given its directory entry?
-    6a. How many inodes can I actually have?
-    6b. How many inodes should I accomodate for? That is, are there other considerations/
-        tradeoffs that might cause me to limit the system to use fewer than another
-        implementation?
-    7. What stuff do we want to keep track of in the inode flag section?
+Verifed that tests pass for all of them on windows.
 
-    It took me quite a while to wrap my head around all of these things, but I 
-    think I've come up with a workable plan. This scheme gives the following answers:
-    
-    1.  
-        I want to dynamically create them. This reduces initial overhead
-        (both time and disk space), and allocations should be lightweight enough
-        that doing them on the fly won't hurt us in terms of runtime. As noted 
-        elsewhere, it also does not make sense that we would be able to keep the
-        whole inode map and all inodes in main memory when our disk is only a few 
-        megabytes. That said, if we are okay/will not lose marks for just having
-        a copy of the inode map cached, I would prefer to do this and have the map
-        point to actual inode_t structures wherever an inode exist and have NULLs
-        for where that inode number doesn't actually have an inode.
+[TODO] The next thing to do is create the root directory. This will entail setting up an
+inode for it, adding this to the inode map, and adding this to the inode free list.
+We may also decide to add a data block for the directory immediately, as any change 
+to the file system (i.e. creating a new file) will entail creating one for root. 
+All this will need to be written to disk immediately, as we don't want a dirty log
+right after initializing; that's just gross.
 
-        TODO Ask yvonne if this would be okay
+Once we have this done, we need to implement the test for init_LLFS and then we 
+can move on to support writing to files. For this we will need to come up with an
+API for our file system (read and write for now should be sufficient). We also 
+need a checkpoint buffer in which to store changes. At its heart, this should be
+an array of blocks, in the order that we would like to write them. We can choose 
+to write this buffer to disk when it gets full, but we need to be careful of only 
+sending part of some transaction to disk. A better way to go would be to check before
+starting each write whether it will cause the buffer to fill/overflow. If so, write the 
+current content (and update the inode map, inode free list, and block free list), clear
+the buffer and continue. Another thing we need to watch out for is single transactions
+which can cause the buffer to overflow (i.e. writing a file larger than our buffer). In
+this case, the best way to go seems to be to split this up into separate transactions.
 
-    2.  We don't need a bit-vector style free list. Instead this information will be
-        kept track of via the inode map.
-    3. 
-        The inode map will map inode numbers to the location of the inode on the 
-        disk and tell us how many inodes we are using and what the number of the 
-        next one to be used will be. It also lets us identify whether or not a 
-        particular inode-number is being used by an inode.
-       
-        The map will be represented in memory as a struct (imap_t, at least for 
-        now) that contains an array "map" of shorts. map[inode number] = the 
-        number of the block containing the corresponding inode. The map struct
-        will also have additional information like the number of inodes in use,
-        and the next available inode. I don't use the map to point directly to 
-        inode_t's, because keeping all inodes in the system in memory seems to 
-        be unrealistic in a setting where we have such a small disk.
+TODO a potentially useful utility would be a manual "flush" - i.e. forcing us to 
+push all changes etc to disk and make things consistent. This would be useful in init as
+well as in the case above and when implementing a cleanup/teardown function.
+  
 
-        The map will be stored on disk as a single block containing a sequence 
-        of 2 byte block numbers, where the ith pair of bytes gives the block 
-        containing the ith inode.
+[TODO] It is also worth noting here that we need to make sure that root cannot 
+be deleted. 
 
-        Entries for inode numbers for which the corresponding inode has not been
-        created/has been deleted will be set to a constant value to indicate this.
-    4.
-        Inode numbers will range from 0 to 4095. When a new file is created
-        the free inode with the lowest number will be used.
-    5.
-        The spec says that a directory entry is 32 bytes:
-            1 byte for an inode descriptor
-            30 bytes for the file name
-            1 byte for a null terminator for the file name
-        
-        With this scheme, we could specify part of the inode id number, but not 
-        the whole thing, as we can only get 256 unique options using one byte. 
-        We could still find the appropriate inode with a 100% success rate, but 
-        we would need to do some searching. 
-
-        I have decided to deviate a little from the spec here and allow 2 bytes 
-        for the inode descriptor in each directory entry in exchange for decreasing
-        the maximum file name size from 30 to 29. This allows us to find the exact
-        location of the inode via the map on the first index into the map every time.
-    6a.
-        We are using 2 bytes for the inode numbers, which gives us an initial 
-        limit of 2^16. As mentioned in 8, we will be using one bit of this for
-        the directory flag, so we're now bounded by 2^15.
-
-        If we consider the case where we have a disk full of empty files (i.e. 
-        files which have an inode but no data) then we see that we could 
-        accomodate up to 16*4086 = 65376 > 2^15 inodes.
-
-        The inode map is also a limiting factor on the number of inodes we can 
-        have. Each mapping takes 2 bytes on disk, so we can have 512/2 = 256 
-        entries per block. If we stick to the limit of 10 reserved blocks, 8 of
-        which have room for us to work, we can get 256*8 = 2048 inodes. Using all
-        of our remaining reserved blocks to get only 2048 inodes feels incredibly
-        sub-optimal. Instead, we could add one level of indirection, and have each
-        2 byte entry in a reserved block point to a data block. Doing this lets us
-        get 256^2 inodes via a single indirect block; however, this might introduce 
-        issues with maintaining their ordering in order to track their numbers.
-
-        From all of this, our upper bound is 2^15 = 32768 inodes.
-    6b.
-        We will have 4096 inodes.
-
-        Another factor at play is how many files we can actually fit on the disk.
-        This doesn't lower our number of inodes from part a if we consider the 
-        possibility of all files (except root) being empty, but this is a highly 
-        unlikely event, and the optimization of the system for large numbers of
-        empty files is decidedly unimportant. As such, we consider that the 
-        maximum number of files which can be created using one data block (rather
-        than zero) is only 3845. 
-        Since we can fit 16 inodes per block, we can make 240 sets of 17 blocks
-        where 16 are data blocks and the last contains 16 inodes for these data 
-        blocks. We are then left with 6 blocks of the available 4086 to use for 
-        5 more non-empty files. 
-        This means that having 32000 inodes is really quite overkill since I am 
-        making the assumption that most files will actually have some content.
-
-        Because of this, I have decided to support only 4096 inodes. To do so, we
-        use 1 level of indirection, but we use a relatively small number
-        of indirect blocks. 
-        We reserve the third (index #2) block on disk for our mapping block.
-        the first 32 bytes are used to point to 16 indirect blocks,
-        each of which can store 256 block # mappings. This gives a total of 4960
-        inode mappings, which should be sufficient for our purposes. 
-    7.
-        We are going to break up the flag section from the spec into two 16 bit 
-        pieces:
-            parent_id: The inode number of the parent directory.
-
-            id: The inode number. One bit of this will serve as a flag to tell
-                us whether a file is a directory or not.
-
-Preventing us from having sparse inodes:
-    - We are going to be writing log changes to an in-memory segment
-    - Just put all updated inodes in blocks together at the end of the segment before we write out to disk
-    - The logistics of this might get a tad hairy, and we will need to be very careful with the math needed for us
-    to ensure that inode pointers are correct, but it will make sure we don't have a bunch of blocks with only one inode in them
-    - Updates to the inode map will also be needed here. The reserved blocks can be updated in place or overwritten 
-    entirely by just re-formulating the content based on the in-memory inode map
-
-==== 
-
-
+### Misc Notes
 
 When removing an inode, make sure to free up any indirect blocks allocated.
 

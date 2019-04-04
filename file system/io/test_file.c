@@ -11,7 +11,7 @@
 #include "file.h"
 #include "../disk/vdisk.h"
 
-#define NUM_TESTS 6
+#define NUM_TESTS 7
 
 // ====  ==== ==== ====  Test method declarations go here ==== ==== ====
 bool test_free_list_api();
@@ -19,6 +19,7 @@ bool test_create_inode();
 bool test_is_dir();
 bool test_get_block_key_from_id();
 bool test_generate_inode_id();
+bool test_get_offset_from_inode_id();
 bool test_init_LLFS();
 
 char *test_names[NUM_TESTS] = {
@@ -27,6 +28,7 @@ char *test_names[NUM_TESTS] = {
     "test_is_dir",
     "test_get_block_key_from_id",
     "test_generate_inode_id",
+    "test_get_offset_from_inode_id",
     "test_init_LLFS"
 };
 
@@ -42,7 +44,8 @@ int main(int argc, char **argv) {
     tests[2] = test_is_dir;
     tests[3] = test_get_block_key_from_id;
     tests[4] = test_generate_inode_id;
-    tests[5] = test_init_LLFS;
+    tests[5] = test_get_offset_from_inode_id;
+    tests[6] = test_init_LLFS;
 
     int passed = 0, failed = 0;
     for(int i = 0; i < NUM_TESTS; i++) {
@@ -119,31 +122,77 @@ bool test_create_inode() {
     return true;
 }
 
-// Windows machine is big endian.
 bool test_is_dir() {
-    short inode_id = 0x0010;
-    if(!is_dir(inode_id)) {
+    short non_dir = 0x8FFF;
+    short dir = 0x1000;
+    if(!is_dir(dir)) {
+        return false;
+    }
+    if(is_dir(non_dir)) {
         return false;
     }
     return true;
 }
 
 bool test_get_block_key_from_id() {
-    short id = 100;
-    unsigned char oracle = id%256;
-    if(get_block_key_from_id(id) != oracle) {
+    // Block key is "middle" 8 bits (4 from each byte)
+    short id = 0x1234;
+    if(get_block_key_from_id(id) != 0X23) {
         return false;
     }
     return true;
 }
 
-bool test_generate_inode_id() {
-    // TODO
-    return false;
+bool test_get_offset_from_inode_id() {
+    // Offset is 4 least significant bytes
+    short x = 0xABCD;
+    short y = 0x1234; 
+    if(get_offset_from_inode_id(x) != 0x0D) {
+        return false;
+    }
+    if(get_offset_from_inode_id(y) != 0x04) {
+        return false;
+    }
+    return true;
 }
 
+/*
+ * Relies on functions is_dir, get_block_key_from_id, get_offset_from_inode_id
+ */ 
+bool test_generate_inode_id() {
+    // Needs the inode free list to be initialized for it to work
+    bitvector_t *free_inode_list = _init_free_inode_list();
+    
+    // Test with valid next_available
+    free_inode_list->next_available = 10;
+    short id = generate_inode_id(false);
+    if(is_dir(id)) {
+        return false;
+    }
+    if(get_block_key_from_id(id) != 0) {
+        return false;
+    }
+    if(get_offset_from_inode_id(id) != 10) {
+        return false;
+    }
+
+    // Test with invalid next_available
+    clear_vector_bit(free_inode_list, 10);
+    id = generate_inode_id(true);
+    if(!is_dir(id)) {
+        return false;
+    }
+    if(get_block_key_from_id(id) != 0) {
+        return false;
+    }
+    if(get_offset_from_inode_id(id) != 0) {
+        return false;
+    }
+    return true;
+}
 
 bool test_init_LLFS() {
     // TODO
+    printf("UNIMPLEMENTED ");
     return false;
 }

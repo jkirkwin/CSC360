@@ -95,13 +95,39 @@ inode_t *create_inode(int file_size, short id, short parent_id, short* direct,
 }
 
 /*
- * Generates a new inode id that is not currently in use. 
- * DOES NOT CHANGE INODE_FREE_LIST
+ * Generates a new inode id that is not currently in use.
+ * Uses the next_available field if unused, otherwise scans for the lowest 
+ * unused inode number and uses that. Sets next_available to this value if this
+ * happens. Unused bits are cleared.
+ * DOES NOT CHANGE INODE_FREE_LIST.
  */ 
-short generate_inode_id(bool is_dir) {
-    // TODO
+short generate_inode_id(bool dir_flag) {
     // Find appropriate inode number
-    // Add the dir flag if needed (just use a mask)
+    if(free_inode_list->n >= NUM_INODES) {
+        fprintf(stderr, "WARNING: cannot generate inode id - all nodes allocated\n");
+        return -1;
+    }
+    short id;
+    if(test_vector_bit(free_inode_list, free_inode_list->next_available)){
+        // Use what was previously marked as next_available
+        id = free_inode_list->next_available;
+    } else {
+        // Find the lowest available inode id, use it, and set it as next_avaliable
+        short i;
+        for(i = 0; i < BITS_PER_BIT_VECTOR; i++) {
+            if(test_vector_bit(free_inode_list, i)) {
+                free_inode_list->next_available = i;
+                id = i;
+                break;
+            }
+        }
+    }
+
+    id = id & 0x7F; // Clear unused bits
+    if(dir_flag) {
+        id = id | 0x1000; // Set dir flag
+    }
+    return id;
 }
 
 /*
@@ -109,22 +135,25 @@ short generate_inode_id(bool is_dir) {
  */ 
 unsigned char get_block_key_from_id(short inode_id) {
     // Blockid is stored in the less significant byte of the inode id
-    return inode_id % 256;
+    return (inode_id >> 4) & 0xFF;
+}
+
+/*
+ * Computes the offset within the inode bock for an inode given its id
+ */ 
+unsigned char get_offset_from_inode_id(short inode_id) {
+    return inode_id & 0x0F;
 }
 
 /*
  * Computes whether a given inode_id has the dir flag set.
+ * Requires a big-endian architecture (which the ssh server is)
  */ 
 bool is_dir(short inode_id) {
     // Flag is the most significant bit of the more significant byte.
-    // A masking approach would need us to know the endian-ness of the OS
-    // So we're going to go with good old arithmetic
     short mask = 0x1000;
     return mask & inode_id;
-
-    // return inode_id/4096;
 }
-
 
 /*=================================== LLFS API ===============================*/
 /*
@@ -204,3 +233,23 @@ void initLLFS(FILE* alt_disk) {
 
 // In addition to writing out the segment, we will want to write updates made to
 // free lista and inode map since last checkpoint
+
+
+
+/*============================= Testing helpers =============================*/
+
+/*
+ * To allow unit tests independant of initLLFS().
+ * Sets free_inode_list to have all entries = 1 and n, next_available to 0.
+ * Returns a pointer to the list.
+ */ 
+bitvector_t* _init_free_inode_list() {
+    free_inode_list = (bitvector_t *) malloc(sizeof(bitvector_t));
+    int i;
+    for(i = 0; i < BITS_PER_BIT_VECTOR; i++) {
+        set_vector_bit(free_inode_list, i);
+    }
+    free_inode_list->n = 0;
+    free_inode_list->next_available = 10;
+    return free_inode_list;
+}
