@@ -212,7 +212,6 @@ right after initializing; that's just gross.
 
 ### <u>Starting on LLFS Functionality</u>
 
-[TODO]
 We can now move on to adding support for writing to files. For this we will need
 to come up with an API for our file system (read and write should be sufficient 
 for now). We also need a checkpoint buffer in which to store changes. At its 
@@ -238,6 +237,45 @@ case, the best way to go seems to be to split it up into separate transactions.
     anywhere in the system, i.e. so that we can read any file in any directory,
     write to any directory, and delete from any leaf node (that is, any file or
     any empty directory).  
+
+Design Question: Should we treat files and directories differently for the above 3 options?
+    We can't do this for write, since users should not be able to just write to 
+    the data blocks of a directory! Thus we'll go with mkdir() and write(). They
+    can probably share some code under the hood though.
+
+    For delete (rm?) this seems reasonable to share a sinlge function, 
+    especially since we're allowing directories to be deleted only if they are 
+    empty. 
+
+    Reading a file should just yield a string of the bytes in the file, but 
+    reading a directory should involve some formatting of the results. We don't 
+    want to be giving the user a list of inode numbers along with the filename 
+    etc.Also, they might also want some of the metadata like file size for each 
+    item. We will give just a char** containing all file names and add other
+    functions to allow users to access metadata via that file name. This 
+    prevents them from needing to deal with erroneous structs or filter through
+    strings of bytes representing multiple data types.
+    We will separate file and directory reading functions, but we can certainly 
+    re-use some of the code.
+
+[TODO] Here is the api i've defined for now. We'll definitely need to add some
+more functions as we go. We need tests for these too!
+
+    void flush_LLFS()
+    void terminate_LLFS()
+
+    inode_t *create_file(char *filename, char *path_to_parent_dir) 
+    inode_t *mkdir(char * dirname, char *path_to_parent_dir)
+    int write(void* content, int content_length, int offset, char *filename)
+    int append(char *content, int content_length, char *filename);
+
+    char **get_dir_contents(char *dirname)
+    int read_file(void *buffer, int buffer_size, char *filename); 
+
+    bool rm(char *filename);
+
+    inode_t* find_dir(char* dirpath);
+
 
 [TODO] a potentially useful utility would be a manual "flush" - i.e. forcing us to 
 push all changes etc to disk and make things consistent. This would be useful in init as

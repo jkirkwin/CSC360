@@ -13,8 +13,6 @@
 
 #define MAX_FILENAME_LENGTH 30
 
-
-
 // From assignment 2
 #define VERBOSE // TODO Add as a compilation option instead of toggling here 
 
@@ -52,7 +50,6 @@ typedef struct dir_entry {
     char filename[MAX_FILENAME_LENGTH + 1]; // Null terminated string 
 } dir_entry_t;
 
-
 /* =========================== Free list API ===========================*/
 
 // Up to the user to update next_available as appropriate
@@ -68,9 +65,30 @@ void clear_vector_bit(bitvector_t *vector, short index);
 
 /* =========================== LLFS API ===========================*/
 
-void init_LLFS(FILE* alt_disk);
+// Framework
+void init_LLFS(); // Should be called at startup
+void flush_LLFS(); 
+void terminate_LLFS(); // Should be called on shutdown
 
+// Create
+inode_t *create_file(char *filename, char *path_to_parent_dir); 
+inode_t *mkdir(char * dirname, char *path_to_parent_dir); 
+
+// Write
+int write(void* content, int content_length, int offset, char *filename); // can be used to append
+int append(char *content, int content_length, char *filename); 
+
+// Read
+char **get_dir_contents(char *dirname); 
+int read_file(void *buffer, int buffer_size, char *filename); 
+
+// Delete
+bool rm(char *filename);
+
+// Misc
+inode_t* find_dir(char* dirpath);
 
 /* =========================== Testing ===========================*/
+
 bitvector_t* _init_free_inode_list();
 void print_inode_details(inode_t* inode);

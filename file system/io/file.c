@@ -155,6 +155,9 @@ bool is_dir(short inode_id) {
     return mask & inode_id;
 }
 
+
+
+
 /*
  * Gives the key used in the inode free list for an inode given its id
  */ 
@@ -163,9 +166,9 @@ short get_inode_free_list_key(short inode_id) {
 }
 
 /*=================================== LLFS API ===============================*/
+
 /*
- * Wipes and formats a fresh virtual disk. Will do so in the current working 
- * directory if alt_disk is omitted.
+ * Wipes and formats a fresh virtual disk in the current working directory.
  * 
  * This formatting entails the following:
  * 1. Writes the magic number (to identify formatting as LLFS), number of blocks 
@@ -175,12 +178,12 @@ short get_inode_free_list_key(short inode_id) {
  * 3. Sets up the inode map
  * 4. Creates a root directory
  */ 
-void init_LLFS(FILE* alt_disk) {
+void init_LLFS() {
     VERBOSE_PRINT("Formatting Disk\n");
 
     // Write superblock content
     int sb_content[3] = { MAGIC_NUMBER, BLOCKS_ON_DISK, NUM_INODES };
-    vdisk_write(0, sb_content, 0, sizeof(int) * 3, alt_disk);
+    vdisk_write(0, sb_content, 0, sizeof(int) * 3, NULL);
     
     // Init free lists
     free_block_list = (bitvector_t *) malloc(sizeof(bitvector_t));
@@ -218,17 +221,134 @@ void init_LLFS(FILE* alt_disk) {
     inode_t *root_inode = create_inode(0, ROOT_ID, ROOT_ID, NULL, 0, 
             INODE_FIELD_NO_DATA, INODE_FIELD_NO_DATA);
     vdisk_write(get_block_key_from_id(ROOT_ID) + RESERVED_BLOCKS, root_inode, 
-            get_offset_from_inode_id(ROOT_ID), sizeof(inode_t), alt_disk);
+            get_offset_from_inode_id(ROOT_ID), sizeof(inode_t), NULL);
 
     // Write free lists and inode map to disk
-    vdisk_write(1, free_block_list->vector, 0, BITS_PER_BIT_VECTOR, alt_disk);
-    vdisk_write(2, free_inode_list->vector, 0, BITS_PER_BIT_VECTOR, alt_disk);
-    vdisk_write(3, imap, 0,  NUM_INODE_BLOCKS * sizeof(short), alt_disk);
+    vdisk_write(1, free_block_list->vector, 0, BITS_PER_BIT_VECTOR, NULL);
+    vdisk_write(2, free_inode_list->vector, 0, BITS_PER_BIT_VECTOR, NULL);
+    vdisk_write(3, imap, 0,  NUM_INODE_BLOCKS * sizeof(short), NULL);
 
     VERBOSE_PRINT("Formatting done.\n");
 }
 
-// TODO Read and write functionality
+
+/*
+ * Flush all cached changes to disk. Ensures that disk is consistent with state
+ * in memory.
+ * 
+ * Empties the checkpoint buffer.
+ */ 
+void flush_LLFS() {
+    // TODO
+}
+
+/*
+ * Flushes changes to the disk and performs teardown tasks.
+ */ 
+void terminate_LLFS() {
+    flush_LLFS();
+    // TODO
+    // Free memory and close any file pointers
+
+}
+
+/*
+ * Creates a file with the name given in the parent directory specified.
+ * 
+ * Returns NULL if unsuccessful. Returns a pointer to the inode for the new file
+ * otherwise.
+ */ 
+inode_t *create_file(char *filename, char *path_to_parent_dir) {
+    // TODO
+    return NULL;
+}
+
+/*
+ * Creates a subdirectory of the given parent directory with the specified name.
+ * 
+ * Returns NULL if successful. Returns a pointer to the indode for the new 
+ * directory otherwise.
+ */ 
+inode_t *mkdir(char * dirname, char *path_to_parent_dir) {
+    // TODO
+    return NULL;
+}
+
+/*
+ * Writes the content given to the file specified. Will overwrite existing 
+ * content if the offset is less than the length of the file. Content_length is 
+ * in bytes.
+ * 
+ * Returns the number of bytes written. -1 on error.
+ * 
+ * Fails if the file name given does not correspond to a non-directory file in 
+ * the file system.
+ * 
+ * Fails if offset is negative or is greater than the length of the file.  
+ */ 
+int write(void* content, int content_length, int offset, char *filename) {
+    // TODO
+    return -1;
+}
+
+/*
+ * Appends the content given to the end of the specified file. Not content will 
+ * be overwritten. Content_length is in bytes.
+ * 
+ * Returns the number of bytes written. -1 on error.
+ * 
+ * Fails if the file name given does not correspond to a non-directory file in 
+ * the file system.
+ */ 
+int append(char *content, int content_length, char *filename) {
+    // TODO 
+    return -1;
+}
+
+/*
+ * Returns a NULL-terminated list of the filenames of all files in the 
+ * directory. Directories are indicated with a trailing '/'.
+ */ 
+char **get_dir_contents(char *dirname) {
+    // TODO
+    return NULL;
+}
+
+/*
+ * Reads up to buffer_size bytes from the specified file into the buffer. Does
+ * not pad the buffer if it exceeds the size of the file.
+ * 
+ * Returns the number of bytes read into the buffer, -1 on error.
+ * 
+ * Fails if the file name given does not correspond to a non-directory file in 
+ * the file system.
+ */ 
+int read_file(void *buffer, int buffer_size, char *filename) {
+    // TODO
+    return -1;
+}
+
+/*
+ * Deletes the specified file. If the file is a directory, it must be empty in
+ * order to be deleted.
+ * 
+ * The root directory cannot be removed.
+ * 
+ * Returns true iff the deletion was successful.
+ */ 
+bool rm(char *filename) {
+    // TODO
+    return false;
+}
+
+/*
+ * Returns the inode of the specified directory. Returns NULL if no such 
+ * directory exists.
+ */ 
+inode_t* find_dir(char* dirpath) {
+    // TODO
+    return NULL;
+}
 
 // TODO create segment buffer to be sent to disk when full 
 // Need a way to ensure this is written on process end
@@ -237,7 +357,7 @@ void init_LLFS(FILE* alt_disk) {
     // (essentially like closing a file system) 
 
 // In addition to writing out the segment, we will want to write updates made to
-// free lista and inode map since last checkpoint
+// free list and inode map since last checkpoint
 
 
 
