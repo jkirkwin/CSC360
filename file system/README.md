@@ -1,5 +1,14 @@
 # CSC 360 Assignment 4: Little Log Structured File System (LLFS)
 
+## For the TAs
+
+Hello and welcome. 
+
+TODO talk about the makefile, what it does, how to run it
+TODO talk about the shell script, what it does, how to run it
+TODO talk about the different sections etc of the readme, and possibly write a 
+     synopsis for them
+
 ## APIs and spec notes
 
 ### <u>vDisk</u>
@@ -258,11 +267,31 @@ Design Question: Should we treat files and directories differently for the above
     We will separate file and directory reading functions, but we can certainly 
     re-use some of the code.
 
-[TODO] Here is the api i've defined for now. We'll definitely need to add some
-more functions as we go. We need tests for these too!
+                
+In order to move forward with implementing first-round versions of these 
+functions, we will need a checkpointing system. 
 
-    void flush_LLFS()
+    On option is to wrap it up in a struct where we can keep track of how full
+    it is and any other metadata we need.
+
+    The actual buffer its self will need an organization scheme too.
+        Option 1: write directly to the buffer as if it were the disk.
+            This could make doing offsets tricky - i.e. we wouldn't be able to 
+            use the offset functionality given by the disk.
+
+        Option 2: have more structure, where the buffer is organized as a list
+        of operations or transactions.
+            This will make the checkpoint buffer its self much more complex, but
+            might help us break things up logically.
+
+[TODO]
+Here is the API I've defined for now. We'll definitely need to add some more 
+functions as we go. We need tests for these too!
+
+    void init_LLFS()
     void terminate_LLFS()
+    void flush_LLFS()
+    void defrag_LLFS()
 
     inode_t *create_file(char *filename, char *path_to_parent_dir) 
     inode_t *mkdir(char * dirname, char *path_to_parent_dir)
@@ -276,13 +305,9 @@ more functions as we go. We need tests for these too!
 
     inode_t* find_dir(char* dirpath);
 
+It is also worth noting here that we need to make sure that root cannot be rm'd. 
 
-[TODO] a potentially useful utility would be a manual "flush" - i.e. forcing us to 
-push all changes etc to disk and make things consistent. This would be useful in init as
-well as in the case above and when implementing a cleanup/teardown function.
 
-[TODO] It is also worth noting here that we need to make sure that root cannot 
-be deleted. 
 
 [TODO] Another thing to we need to figure out is the inode cache that we're 
 going to use. It feels easiest to hold an array of arrays of inode_t pointers,

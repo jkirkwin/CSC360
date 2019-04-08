@@ -59,6 +59,29 @@ void set_vector_bit(bitvector_t *vector, short index) {
     vector->n--;
 }
 
+
+/*
+ * Marks the next available block of memory as used and returns its number.
+ * 
+ * Does not update next available block to be the next block.
+ * 
+ * Does not call defrag if this fills the disk; it is up to client code to do so
+ * 
+ * @pre the bitvector must be set up correctly (i.e. next_available must be 
+ *      correct)
+ * @pre there must be a valid data block to use; i.e. if defragging is necessary
+ *      it must be done before calling this function.
+ */ 
+short consume_block() {
+    short na = free_block_list->next_available;
+    if(!test_vector_bit(free_block_list, na)) {
+        fprintf(stderr, "WARNING: Unsafe consume_block() call\n");
+        return -1;
+    }
+    clear_vector_bit(free_block_list, na);        
+    return na;
+}
+
 /*============================ INODES AND IMAP ==============================*/
 
 // Maps inode block numbers to their location on disk
@@ -92,6 +115,14 @@ inode_t *create_inode(int file_size, short id, short parent_id, short* direct,
     inode->single_ind_block = single_ind_block;
     inode->double_ind_block = double_ind_block;
     return inode;
+}
+
+/*
+ * A wrapper for create_inode in the case that the inode will not yet have any
+ *  associated data blocks.
+ */ 
+inode_t *create_empty_inode(short id, short parent_id) {
+    return create_inode(0, id, parent_id, NULL, 0, INODE_FIELD_NO_DATA, INODE_FIELD_NO_DATA);
 }
 
 /*
@@ -155,15 +186,29 @@ bool is_dir(short inode_id) {
     return mask & inode_id;
 }
 
-
-
-
 /*
  * Gives the key used in the inode free list for an inode given its id
  */ 
 short get_inode_free_list_key(short inode_id) {
     return inode_id & 0x0FFF;
 }
+
+/*
+ * Returns the content of the specified inode block as an array of 16 inodes.
+ */ 
+inode_t* get_inode_block(short inode_block_key) {
+    inode_t *inodes = (inode_t *) malloc(BYTES_PER_BLOCK);
+    if(!inodes) {
+        fprintf(stderr, "ERROR: Could not allocate memory for inode block\n");
+        return NULL;
+    }
+    if(!vdisk_read(imap[inode_block_key], inodes, NULL)) {
+        fprintf(stderr, "ERROR: Could not read inode block\n");
+        free(inodes);
+        return NULL;
+    }
+    return inodes;
+} 
 
 /*=================================== LLFS API ===============================*/
 
@@ -224,11 +269,11 @@ void init_LLFS() {
             get_offset_from_inode_id(ROOT_ID), sizeof(inode_t), NULL);
 
     // Write free lists and inode map to disk
-    vdisk_write(1, free_block_list->vector, 0, BITS_PER_BIT_VECTOR, NULL);
-    vdisk_write(2, free_inode_list->vector, 0, BITS_PER_BIT_VECTOR, NULL);
+    vdisk_write(1, free_block_list->vector, 0, BITS_PER_BIT_VECTOR/8, NULL);
+    vdisk_write(2, free_inode_list->vector, 0, BITS_PER_BIT_VECTOR/8, NULL);
     vdisk_write(3, imap, 0,  NUM_INODE_BLOCKS * sizeof(short), NULL);
 
-    VERBOSE_PRINT("Formatting done.\n");
+    VERBOSE_PRINT("Formatting done. Root directory created.\n");
 }
 
 
@@ -237,8 +282,24 @@ void init_LLFS() {
  * in memory.
  * 
  * Empties the checkpoint buffer.
+ * 
+ * Defrags the memory if necessary to complete the flush.
  */ 
 void flush_LLFS() {
+    // TODO
+}
+
+/* 
+ * Consolidate the file system, filling in empty chunks of the disk to make more
+ * room at the end.
+ * 
+ * Updates the free lists and imap appropriately. Changes are made persistent on
+ * completion.
+ * 
+ * The new checkpoint region (the end of the current log) will be pointed to by
+ * free_block_list->next_available.
+ */ 
+void defrag_LLFS() {
     // TODO
 }
 
@@ -260,7 +321,61 @@ void terminate_LLFS() {
  */ 
 inode_t *create_file(char *filename, char *path_to_parent_dir) {
     // TODO
-    return NULL;
+    // For now we'll make the following simplifications:
+        // 1. the parent will be assumed to be root.
+        // 2. changes will be written directly to disk (without using a checkpoint 
+        //    buffer)
+
+    // note that in creating a file, we only ever need to consume one block
+    // as all we're really doing is changing the inode block.
+    // TODO add following checks
+    // if(checkpoint buffer is full) {
+    //     fflush();
+    // }
+
+
+    // Use root dir as default parent for now.
+    int root_inode_block = imap[get_block_key_from_id(ROOT_ID)];
+    inode_t *root_inode = get_inode_block(root_inode_block);
+
+    // TODO Find parent directory instead of using root as is done above.
+    // inode_t *parent_inode = find_dir(path_to_parent_dir);
+    // if(!parent_inode) {
+    //     fprintf(stderr, "No such directory exists. Cannot create file.\n");
+    //     return NULL;
+    // }
+    inode_t *parent_inode = root_inode; // TODO change
+
+    // TODO Validate filename 
+    // - Ensure it is within the allowed bounds
+    // - Ensure it does not contain any slashes or other special characters other 
+    //   than a single '.'
+    // - Check that a file with that name does not already exist in the parent
+    // - directory 
+
+    // Allocate inode for the file
+    short inode_id = generate_inode_id(false);
+    inode_t *file_inode = create_empty_inode(inode_id, parent_inode->id);
+    if(!file_inode) {
+        fprintf(stderr, "Could not allocate inode. Cannot create file.\n");
+        return NULL;
+    }
+    clear_vector_bit(free_inode_list, get_inode_free_list_key(inode_id));
+
+    // TODO Add the inode block to the checkpoint buffer
+
+    // mark the previous data block as unused.
+    set_vector_bit(free_block_list, imap[get_block_key_from_id(inode_id)]);
+    
+    // TODO check whether we need to defrag before consuming the block
+
+    // get a new spot for the inode block and update the inode map
+    short new_inode_location = consume_block();
+    free_block_list->next_available++; // TODO check whether we need to defrag instead of this
+    imap[get_block_key_from_id(inode_id)] = new_inode_location; 
+        
+    VERBOSE_PRINT("Created new file '%s' in root directory\n", filename);
+    return file_inode;
 }
 
 /*
@@ -390,4 +505,6 @@ void print_inode_details(inode_t* inode) {
     printf("\t is_dir: %s\n", is_dir(id) ? "true" : "false");
     printf("\t parent id: %d\n", inode->parent_id);
     printf("\t file size: %d\n", inode->file_size);
+    printf("\t single ind hex: %x\n", inode->single_ind_block & 0xFFFF);
+    printf("\t double ind hex: %x\n", inode->double_ind_block & 0xFFFF);
 }

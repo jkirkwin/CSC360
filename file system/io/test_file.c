@@ -11,7 +11,7 @@
 #include "file.h"
 #include "../disk/vdisk.h"
 
-#define NUM_TESTS 8
+#define NUM_TESTS 10
 
 // ====  ==== ==== ====  Test method declarations go here ==== ==== ====
 
@@ -24,11 +24,14 @@ bool test_generate_inode_id();
 bool test_get_offset_from_inode_id();
 bool test_get_inode_free_list_key();
 bool test_init_LLFS();
+bool test_get_inode_block();
+bool test_create_file_in_root_dir();
 
 // Helper
 bool test_superblock_write();
 bool test_init_free_lists();
 bool test_imap_init();
+bool check_inodes_equal(inode_t inode_1, inode_t inode_2);
 
 char *test_names[NUM_TESTS] = {
     "test_free_list_api",
@@ -38,7 +41,9 @@ char *test_names[NUM_TESTS] = {
     "test_generate_inode_id",
     "test_get_offset_from_inode_id",
     "test_get_inode_free_list_key",
-    "test_init_LLFS"
+    "test_init_LLFS",
+    "test_get_inode_block",
+    "test_create_file_in_root_dir"
 };
 
 // ==== ==== ==== ==== Helper methods go here ==== ==== ==== ==== ==== 
@@ -56,10 +61,12 @@ int main(int argc, char **argv) {
     tests[5] = test_get_offset_from_inode_id;
     tests[6] = test_get_inode_free_list_key;
     tests[7] = test_init_LLFS;
+    tests[8] = test_get_inode_block;
+    tests[9] = test_create_file_in_root_dir;
 
     int passed = 0, failed = 0;
     for(int i = 0; i < NUM_TESTS; i++) {
-        printf("%s: ", test_names[i]);
+        printf("%d.  %s: ", i+1, test_names[i]);
         if(tests[i]()) {
             passed++;
             printf("PASSED\n");
@@ -354,4 +361,75 @@ bool test_imap_init() {
         return false;
     }
     return true;
+}
+
+/*
+ * Helper created for test_get_inode_block
+ */ 
+bool check_inodes_equal(inode_t inode_1, inode_t inode_2) {
+    if(inode_1.id != inode_2.id) {
+        VERBOSE_PRINT("id mismatch")
+        return false;
+    }
+    if(inode_1.parent_id != inode_2.parent_id) {
+        VERBOSE_PRINT("parent id mismatch")
+        return false;
+    }
+    if(inode_1.file_size != inode_2.file_size) {
+        VERBOSE_PRINT("file size mismatch")
+        return false;
+    }
+    if(inode_1.single_ind_block != inode_2.single_ind_block) {
+        VERBOSE_PRINT("single indirect block mismatch")
+        return false;
+    }
+    if(inode_1.double_ind_block != inode_2.double_ind_block) {
+        VERBOSE_PRINT("double indirect block mismatch")
+        return false;
+    }
+    int i;
+    for(i = 0; i < 10; i++) {
+        if(inode_1.direct[i] != inode_2.direct[i]) {
+            VERBOSE_PRINT("direct block #%d mismatch", i);
+            return false;
+        }
+    }
+    return true;
+}
+
+/*
+ * Relies on create_inode() and get_block_key_from_id()
+ */ 
+bool test_get_inode_block() {
+    inode_t oracle_inodes[16];
+    inode_t *result_inodes;
+    int i;
+
+    short direct1[10] = {1,2,3,4,5,7,8,9,1000};
+    short direct2[5] = {-1,-2,-3,-4,-5};
+
+    oracle_inodes[0] = *create_empty_inode(0x0000, ROOT_ID);
+    oracle_inodes[1] = *create_empty_inode(0x0001, ROOT_ID);
+    for(i = 2; i < 16; i+=2) {
+        oracle_inodes[i] = *create_inode(i, i, ROOT_ID, direct1, 10, i/2, 2*i);
+        oracle_inodes[i + 1] = *create_inode(i+1, i+1, ROOT_ID, direct2, 5, (i+1)/2, 2*i + 2);
+    }
+
+    vdisk_write(10, oracle_inodes, 0, sizeof(inode_t) * 16, NULL);
+
+    result_inodes = get_inode_block(get_block_key_from_id(0x0000));
+
+    for(i = 0; i < 16; i++) {
+        if(!check_inodes_equal(oracle_inodes[i], result_inodes[i])) {
+            printf("\nfailed for inode #%d\n\t", i);
+            return false;
+        }
+    }
+    return true;
+}
+
+bool test_create_file_in_root_dir() {
+    // TODO
+    printf("\tUNIMPLEMENTED\t");
+    return false;
 }

@@ -8,7 +8,7 @@
 #define NUM_INODES 4096
 #define INODES_PER_BLOCK 16
 #define NUM_INODE_BLOCKS 256
-#define INODE_FIELD_NO_DATA -1
+#define INODE_FIELD_NO_DATA -1 // 0xFFFF for a short
 #define ROOT_ID 0x1000
 
 #define MAX_FILENAME_LENGTH 30
@@ -39,8 +39,10 @@ unsigned char get_block_key_from_id(short inode_id);
 unsigned char get_offset_from_inode_id(short inode_id);
 short strip_dir_bit(short inode_id);
 short generate_inode_id(bool is_dir);
+inode_t* get_inode_block(short block_number);
 inode_t *create_inode(int file_size, short id, short parent_id, short* direct,
     short num_direct, short single_ind_block, short double_ind_block);
+inode_t *create_empty_inode(short id, short parent_id);
 
 
 /* =========================== Directories =============================*/
@@ -65,9 +67,16 @@ void clear_vector_bit(bitvector_t *vector, short index);
 
 /* =========================== LLFS API ===========================*/
 
+typedef struct checkpoint_buffer {
+
+    
+
+} checkpoint_buffer_t;
+
 // Framework
 void init_LLFS(); // Should be called at startup
 void flush_LLFS(); 
+void defrag_LLFS(); 
 void terminate_LLFS(); // Should be called on shutdown
 
 // Create

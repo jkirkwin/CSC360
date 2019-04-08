@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
     
     int passed = 0, failed = 0;
     for(int i = 0; i < NUM_TESTS; i++) {
-        printf("%s: ", test_names[i]);
+        printf("%d.  %s: ", i+1, test_names[i]);
         if(tests[i]()) {
             passed++;
             printf("PASSED\n");

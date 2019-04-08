@@ -98,6 +98,7 @@ bool vdisk_read(int block_number, void *buffer, FILE *alt_disk) {
  */ 
 bool vdisk_write(int block_number, void *content, int offset, int content_length,
          FILE *alt_disk) {
+
     if(block_number < 0 || block_number >= BLOCKS_ON_DISK) {
         fprintf(stderr, "Write failed: invalid block number: %d\n", block_number);
         return false;
@@ -124,9 +125,11 @@ bool vdisk_write(int block_number, void *content, int offset, int content_length
         }
     }   
     fseek(fp, BYTES_PER_BLOCK * block_number + offset, SEEK_SET);
-    int length = BYTES_PER_BLOCK - offset;
-    if(content_length < length) {
-        length = content_length;
+    int length = content_length;
+    if(content_length > BYTES_PER_BLOCK - offset) {
+        int difference = content_length - (BYTES_PER_BLOCK - offset);
+        fprintf(stderr, "WARNING: Truncated content by %d bytes on disk write to block %d\n", difference, block_number);
+        length = BYTES_PER_BLOCK - offset;
     }
     int items_written = fwrite(content, length, 1, fp);
     if(items_written < 1) {
