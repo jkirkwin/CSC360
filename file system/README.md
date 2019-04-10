@@ -307,6 +307,33 @@ functions as we go. We need tests for these too!
 
 It is also worth noting here that we need to make sure that root cannot be rm'd. 
 
+In the process of writing read and write, although I'm not yet using a 
+checkpoint buffer, I noticed that we will probably need a flag to tell us 
+whether a given file has unsynched changes in the buffer. This is because if the
+file is not cached (which it probably won't be because I'm unlikely to have time
+to add a file cache) we need to be able to tell if its disk version is up to 
+date when it is read. Otherwise we would grab the disk version without the 
+recent changes appearing in the buffer.
+    
+    Option 1: Keep track of whether a file is changed by adding a flag to its 
+              inode that tells us whether it is 'dirty'. A problem with this 
+              approach is that it may require us to go to disk for the check in 
+              the case that the relevant inode is not cached. Because of this, 
+              it makes sense to go with the second option.
+
+    Option 2: Store the data of which files have been changed in the checkpoint 
+              buffer. When reading, if a file has been changed, flush to disk 
+              before perforing read.
+
+              To do this we could group the buffer into transactions, and 
+              concatenate their payloads when flushing to disk.
+
+              Alternatively, we could add another data structure (an array, 
+              perhaps) of inode number of files which have been changed. 
+              If we did this with a bit vector we could have very fast lookup 
+              time at the cost of 512 bytes of space. This seems like a good 
+              tradeoff, so we'll take it!
+              TODO add a dirty bitvector to the checkpoint structure 
 
 
 [TODO] Another thing to we need to figure out is the inode cache that we're 

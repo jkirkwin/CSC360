@@ -11,7 +11,7 @@
 #include "file.h"
 #include "../disk/vdisk.h"
 
-#define NUM_TESTS 10
+#define NUM_TESTS 12
 
 // ====  ==== ==== ====  Test method declarations go here ==== ==== ====
 
@@ -25,6 +25,8 @@ bool test_get_offset_from_inode_id();
 bool test_get_inode_free_list_key();
 bool test_init_LLFS();
 bool test_get_inode_block();
+bool test_add_entry_to_checkpoint_buffer();
+bool test_flush_LLFS();
 bool test_create_file_in_root_dir();
 
 // Helper
@@ -43,6 +45,8 @@ char *test_names[NUM_TESTS] = {
     "test_get_inode_free_list_key",
     "test_init_LLFS",
     "test_get_inode_block",
+    "test_add_entry_to_checkpoint_buffer",
+    "test_flush_LLFS",
     "test_create_file_in_root_dir"
 };
 
@@ -62,7 +66,9 @@ int main(int argc, char **argv) {
     tests[6] = test_get_inode_free_list_key;
     tests[7] = test_init_LLFS;
     tests[8] = test_get_inode_block;
-    tests[9] = test_create_file_in_root_dir;
+    tests[9] = test_add_entry_to_checkpoint_buffer;
+    tests[10] = test_flush_LLFS;
+    tests[11] = test_create_file_in_root_dir;
 
     int passed = 0, failed = 0;
     for(int i = 0; i < NUM_TESTS; i++) {
@@ -74,6 +80,7 @@ int main(int argc, char **argv) {
             failed++;
             printf("FAILED\n");
         }
+        printf("\n\n");
     }
     printf("\nPassed %d/%d tests\n", passed, NUM_TESTS);
 }
@@ -103,6 +110,7 @@ bool test_free_list_api() {
             return false;
         }
     }
+    VERBOSE_PRINT("\n\t--setting, clearing, and testing bits works as intended \n\t");
     return true;
 }
 
@@ -144,6 +152,8 @@ bool test_create_inode() {
         fprintf(stderr, "\tvvv parent id doesnt match\n");
         return false;
     }
+
+    VERBOSE_PRINT("\n\t--created inode and verified every field \n\t");
     return true;
 }
 
@@ -156,6 +166,7 @@ bool test_is_dir() {
     if(is_dir(non_dir)) {
         return false;
     }
+    VERBOSE_PRINT("\n\t--tested function for directory and non-directory inode inputs \n\t");
     return true;
 }
 
@@ -213,11 +224,12 @@ bool test_generate_inode_id() {
     if(get_offset_from_inode_id(id) != 0) {
         return false;
     }
+
+    VERBOSE_PRINT("\n\t--successfully generated with and without proper free-list setup \n\t");
     return true;
 }
 
 bool test_get_inode_free_list_key() {
-    // TODO
     short id1 = 0x1123; // key should be 0x123
     short id2 = 0x1000; // key should be 0
     short id3 = 0x0FFF; // key should be 0xFFF
@@ -230,6 +242,7 @@ bool test_get_inode_free_list_key() {
     if(get_inode_free_list_key(id3) != 0xFFF) {
         return false;
     }
+    VERBOSE_PRINT("\n\t--works for a variety of inputs \n\t");
     return true;
 }
 
@@ -259,7 +272,8 @@ bool test_init_LLFS() {
         printf("  Failed test_imap_init  ");
         return false;
     }
-    VERBOSE_PRINT("\t\t"); // Formatting
+
+    VERBOSE_PRINT("\n\t--superblock and data structures written to disk and created in memory; root dir created\n\t");
     return true;
 }
 
@@ -425,6 +439,120 @@ bool test_get_inode_block() {
             return false;
         }
     }
+
+    VERBOSE_PRINT("\n\t--retrieved inode block and verified each one's state \n\t");
+    return true;
+}
+
+bool test_add_entry_to_checkpoint_buffer() {
+    checkpoint_buffer_t* cb = init_checkpoint_buffer();
+    
+    char * content1 = "this is some content\0"; // small
+    
+    inode_t *content2 = malloc(sizeof(inode_t) * 16); // big (512 bytes)
+    int i;
+    for(i = 0; i < 16; i++) {
+        content2[i] = *create_empty_inode(i, 0);
+    }
+
+    add_entry_to_checkpoint_buffer(content1, strlen(content1), 0);
+    add_entry_to_checkpoint_buffer(content2, sizeof(inode_t) * 16, 1);
+
+    bitvector_t *v = cb->dirty_inode_list;
+
+    if(cb->blocks_used != 2) {
+        VERBOSE_PRINT("/tinocrrect used block count/t");
+        return false;
+    }
+    if(test_vector_bit(v, 0) || test_vector_bit(v, 1)) {
+        VERBOSE_PRINT("/tinodes not marked as dirty/t");
+        return false;
+    }
+
+    char * result1 = (char *) cb->buffer[0]->content;
+    if(strncmp(content1, result1, strlen(content1))) {
+        VERBOSE_PRINT("/tfailed to retrieve string/t");
+        return false;
+    }
+
+    inode_t *result2 = (inode_t *) cb->buffer[1]->content;
+    for(i = 0; i < 16; i++) {
+        if(!check_inodes_equal(result2[i], content2[i])) {
+            VERBOSE_PRINT("/inode %d does not match/t", i);
+            return false;
+        }
+    }
+
+    VERBOSE_PRINT("\n\t--entries added to buffer and metadata confirmed to be added too\n\t");
+    return true;
+}
+
+bool test_flush_LLFS() {
+
+    init_LLFS();
+    bitvector_t *free_block_list = _get_free_block_list();
+    bitvector_t *free_inode_list = _get_free_inode_list();
+    short *imap = _get_imap();
+
+    // add 3 blocks with same inode id
+    char* blocks[3];
+    blocks[0] = "Hello World0\0";
+    blocks[1] = "Hello World1\0";
+    blocks[2] = "Hello World2\0";
+    int inode_id = 1;
+    int starting_block = free_block_list->next_available;
+    add_entry_to_checkpoint_buffer(blocks[0], strlen(blocks[0]), inode_id);
+    add_entry_to_checkpoint_buffer(blocks[1], strlen(blocks[1]), inode_id);
+    add_entry_to_checkpoint_buffer(blocks[2], strlen(blocks[2]), inode_id);
+
+    // Modify the other two structures to verify that they are sent to disk too
+    imap[1] = RESERVED_BLOCKS + 1; 
+    clear_vector_bit(free_block_list, 100);
+    clear_vector_bit(free_inode_list, 1);
+
+
+    flush_LLFS();
+
+    // Check that content was saved
+    char buffer[512];
+    for(int i = 0; i < 3; i++) {
+        vdisk_read(starting_block + i, buffer, NULL);
+        // printf("\tOracle: \'%s\'\n", blocks[i]);
+        // printf("\tResult: \'%s\'\n", buffer);
+        if(strncmp(blocks[i], buffer, strlen("hello_worldX"))) {
+            printf(" content block %d not sent to disk ", i);
+            return false;
+        }
+    }
+
+    // Check that data structures were saved.
+    bitvector_t *result_vector = malloc(sizeof(bitvector_t));
+    short result_imap[NUM_INODE_BLOCKS];
+
+    vdisk_read(FREE_BLOCK_LIST_BLOCK_NUMBER, result_vector->vector, NULL);
+    if(test_vector_bit(result_vector, 100)) {
+        printf(" Block list not sent to disk ");
+        return false;
+    }
+    vdisk_read(FREE_INODE_LIST_BLOCK_NUMBER, result_vector->vector, NULL);
+    if(test_vector_bit(result_vector, 1)) {
+        printf(" Inode list not sent to disk ");
+        return false;
+    }
+    vdisk_read(IMAP_BLOCK_NUMBER, result_imap, NULL);
+    if(imap[1] != RESERVED_BLOCKS + 1) {
+        printf(" Imap not sent to disk ");
+        return false;
+    }
+
+    // Check that the buffer is now empty
+    checkpoint_buffer_t *cb = _get_checkpoint_buffer();
+    if(cb->blocks_used != 0) {
+        printf(" blocks marked as used in checkpoint buffer ");
+        return false;
+    }
+
+    VERBOSE_PRINT("\n\t--content and data structures verified to be written to disk\n\t");
     return true;
 }
 

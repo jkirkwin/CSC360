@@ -3,6 +3,10 @@
 #define MAGIC_NUMBER 1337
 #define RESERVED_BLOCKS 10
 
+#define FREE_BLOCK_LIST_BLOCK_NUMBER 1
+#define FREE_INODE_LIST_BLOCK_NUMBER 2
+#define IMAP_BLOCK_NUMBER 3
+
 #define BITS_PER_BIT_VECTOR 4096 
 
 #define NUM_INODES 4096
@@ -12,6 +16,8 @@
 #define ROOT_ID 0x1000
 
 #define MAX_FILENAME_LENGTH 30
+
+#define CHECKPOINT_BUFF_SIZE 64
 
 // From assignment 2
 #define VERBOSE // TODO Add as a compilation option instead of toggling here 
@@ -52,7 +58,7 @@ typedef struct dir_entry {
     char filename[MAX_FILENAME_LENGTH + 1]; // Null terminated string 
 } dir_entry_t;
 
-/* =========================== Free list API ===========================*/
+/* =========================== Bit Vector API ===========================*/
 
 // Up to the user to update next_available as appropriate
 typedef struct free_list_vector {
@@ -65,13 +71,29 @@ void set_vector_bit(bitvector_t *vector, short index);
 bool test_vector_bit(bitvector_t *vector, short index);
 void clear_vector_bit(bitvector_t *vector, short index);
 
+void clear_entire_vector(bitvector_t *vector);
+void set_entire_vector(bitvector_t *vector);
+
 /* =========================== LLFS API ===========================*/
 
+// Checkpoint Buffer
+
+typedef struct cb_entry {
+    int content_length;
+    void *content;
+} cb_entry_t;
+
+// dirty_inode_list uses same key structure as free_inode_list
 typedef struct checkpoint_buffer {
-
-    
-
+    int blocks_used;
+    cb_entry_t* buffer[CHECKPOINT_BUFF_SIZE]; 
+    bitvector_t *dirty_inode_list; // Track which inodes correspond to dirty files
 } checkpoint_buffer_t;
+
+checkpoint_buffer_t *init_checkpoint_buffer();
+void destroy_checkpoint_buffer();
+bool add_entry_to_checkpoint_buffer(void* block, int content_length, int inode_id);
+
 
 // Framework
 void init_LLFS(); // Should be called at startup
@@ -101,3 +123,7 @@ inode_t* find_dir(char* dirpath);
 
 bitvector_t* _init_free_inode_list();
 void print_inode_details(inode_t* inode);
+short * _get_imap();
+bitvector_t * _get_free_block_list();
+bitvector_t * _get_free_inode_list();
+checkpoint_buffer_t * _get_checkpoint_buffer();

@@ -15,16 +15,19 @@
 #include "../disk/vdisk.h"
 #include "file.h"
 
+/* ============================== Globals ============================== */
+// bit = 1 if available, 0 if in use
+bitvector_t *free_block_list;
+bitvector_t *free_inode_list;
 
-/*============================FREE LISTS======================================*/
+checkpoint_buffer_t *checkpoint_buffer;
+
+/*========================= Bit Vectors ===================================*/
 // TODO Ensure changes go to disk eventually
 // TODO Ensure that this is loaded correctly
 
 // Reference: http://www.mathcs.emory.edu/~cheung/Courses/255/Syllabus/1-C-intro/bit-array.html
 
-// bit = 1 if available, 0 if in use
-bitvector_t *free_block_list;
-bitvector_t *free_inode_list;
 
 /*
  * Returns true iff item is available for use
@@ -59,27 +62,29 @@ void set_vector_bit(bitvector_t *vector, short index) {
     vector->n--;
 }
 
+/*
+ * Marks every item as used.
+ */ 
+void clear_entire_vector(bitvector_t *vector) {
+    int i;
+    unsigned char* arr = vector->vector;
+    for(i = 0; i < BITS_PER_BIT_VECTOR/8; i++) {
+        arr[i] = 0;
+    }
+    vector->n = BITS_PER_BIT_VECTOR;
+}
 
 /*
- * Marks the next available block of memory as used and returns its number.
- * 
- * Does not update next available block to be the next block.
- * 
- * Does not call defrag if this fills the disk; it is up to client code to do so
- * 
- * @pre the bitvector must be set up correctly (i.e. next_available must be 
- *      correct)
- * @pre there must be a valid data block to use; i.e. if defragging is necessary
- *      it must be done before calling this function.
+ * Marks every item as unused. Sets next_available to 0;
  */ 
-short consume_block() {
-    short na = free_block_list->next_available;
-    if(!test_vector_bit(free_block_list, na)) {
-        fprintf(stderr, "WARNING: Unsafe consume_block() call\n");
-        return -1;
+void set_entire_vector(bitvector_t *vector) {
+    int i;
+    unsigned char* arr = vector->vector;
+    for(i = 0; i < BITS_PER_BIT_VECTOR/8; i++) {
+        arr[i] = 0xff;
     }
-    clear_vector_bit(free_block_list, na);        
-    return na;
+    vector->n = 0;
+    vector->next_available = 0;
 }
 
 /*============================ INODES AND IMAP ==============================*/
@@ -212,6 +217,100 @@ inode_t* get_inode_block(short inode_block_key) {
 
 /*=================================== LLFS API ===============================*/
 
+
+/*
+ * Adds a block of content to the checkpoint buffer and marks the associated
+ * inode as dirty.
+ * 
+ * @pre there must be room for at least one more block in the checkpoint buffer 
+ * 
+ * @pre init_checkpoint_buffer must have been called
+ * 
+ * returns true iff successful
+ */ 
+bool add_entry_to_checkpoint_buffer(void* content, int content_length, int inode_id) {
+    int length = content_length;
+    if(length > BYTES_PER_BLOCK) {
+        length = BYTES_PER_BLOCK;
+        fprintf(stderr, "WARNING: truncating content passed to checkpoint buffer\n");
+    }
+    cb_entry_t *new_entry = calloc(1, sizeof(cb_entry_t));
+    if(!new_entry) {
+        fprintf(stderr, "ERROR: Could not allocate memory for new cb entry\n");
+        return false;
+    }
+    new_entry->content = malloc(length);
+    if(!new_entry->content) {
+        fprintf(stderr, "ERROR: Could not allocate memory for cb entry contents\n");
+        return false;
+    }
+
+    memcpy(new_entry->content, content, length);
+    new_entry->content_length = length;
+    
+    int offset = checkpoint_buffer->blocks_used;
+    checkpoint_buffer->buffer[offset] = new_entry; // TODO Make sure this gets free'd
+    checkpoint_buffer->blocks_used++;
+    
+    clear_vector_bit(checkpoint_buffer->dirty_inode_list, get_inode_free_list_key(inode_id));
+
+    return true;
+}
+
+/*
+ * Allocates memory for the checkpoint buffer and sets up the structure. Also 
+ * returns a pointer to it.
+ */ 
+checkpoint_buffer_t* init_checkpoint_buffer() {
+    checkpoint_buffer_t *cb = malloc(sizeof(checkpoint_buffer_t));
+    if(!cb) {
+        fprintf(stderr, "ERROR: failed to allocate memory for checkpoint buffer struct.\n");
+        exit(1);
+    }
+    cb->blocks_used = 0;
+    cb->dirty_inode_list = malloc(sizeof(bitvector_t));
+    if(!cb->dirty_inode_list) {
+        fprintf(stderr, "ERROR: failed to allocate memory for checkpoint buffer inode list.\n");
+        exit(1);
+    }
+    set_entire_vector(cb->dirty_inode_list);
+    checkpoint_buffer = cb;
+    return cb;
+}
+
+/*
+ * Free memory used for checkpoint buffer and set global pointer to NULL
+ */ 
+void destroy_checkpoint_buffer() {
+    checkpoint_buffer_t *cb = checkpoint_buffer;
+    checkpoint_buffer = NULL;
+    free(cb->dirty_inode_list);
+    free(cb);
+}
+
+/*
+ * Marks the next available block of memory as used and returns its number.
+ * 
+ * Does not update next available block to be the next block.
+ * 
+ * Does not call defrag if this fills the disk; it is up to client code to do so
+ * 
+ * @pre the bitvector must be set up correctly (i.e. next_available must be 
+ *      correct)
+ * @pre there must be a valid data block to use; i.e. if defragging is necessary
+ *      it must be done before calling this function.
+ */ 
+short consume_block() {
+    short na = free_block_list->next_available;
+    if(!test_vector_bit(free_block_list, na)) {
+        fprintf(stderr, "WARNING: Unsafe consume_block() call\n");
+        return -1;
+    }
+    clear_vector_bit(free_block_list, na);        
+    return na;
+}
+
+
 /*
  * Wipes and formats a fresh virtual disk in the current working directory.
  * 
@@ -229,7 +328,7 @@ void init_LLFS() {
     // Write superblock content
     int sb_content[3] = { MAGIC_NUMBER, BLOCKS_ON_DISK, NUM_INODES };
     vdisk_write(0, sb_content, 0, sizeof(int) * 3, NULL);
-    
+
     // Init free lists
     free_block_list = (bitvector_t *) malloc(sizeof(bitvector_t));
     free_inode_list = (bitvector_t *) malloc(sizeof(bitvector_t));
@@ -240,6 +339,8 @@ void init_LLFS() {
     free_block_list->n = 0;    
     free_inode_list->n = 0;
     free_block_list->next_available = 0;
+ 
+    init_checkpoint_buffer();
 
     int i;
     // Mark all blocks and inodes as free
@@ -269,9 +370,9 @@ void init_LLFS() {
             get_offset_from_inode_id(ROOT_ID), sizeof(inode_t), NULL);
 
     // Write free lists and inode map to disk
-    vdisk_write(1, free_block_list->vector, 0, BITS_PER_BIT_VECTOR/8, NULL);
-    vdisk_write(2, free_inode_list->vector, 0, BITS_PER_BIT_VECTOR/8, NULL);
-    vdisk_write(3, imap, 0,  NUM_INODE_BLOCKS * sizeof(short), NULL);
+    vdisk_write(FREE_BLOCK_LIST_BLOCK_NUMBER, free_block_list->vector, 0, BITS_PER_BIT_VECTOR/8, NULL);
+    vdisk_write(FREE_INODE_LIST_BLOCK_NUMBER, free_inode_list->vector, 0, BITS_PER_BIT_VECTOR/8, NULL);
+    vdisk_write(IMAP_BLOCK_NUMBER, imap, 0,  NUM_INODE_BLOCKS * sizeof(short), NULL);
 
     VERBOSE_PRINT("Formatting done. Root directory created.\n");
 }
@@ -284,9 +385,62 @@ void init_LLFS() {
  * Empties the checkpoint buffer.
  * 
  * Defrags the memory if necessary to complete the flush.
+ * 
+ * TODO test
  */ 
 void flush_LLFS() {
-    // TODO
+    VERBOSE_PRINT("Flushing checkpoint buffer\n");
+
+    // Defrag if disk is full
+    short block_number = free_block_list->next_available;
+    if(checkpoint_buffer->blocks_used >= BLOCKS_ON_DISK - block_number) {
+        defrag_LLFS(); // TODO this is unimplemented
+    }
+
+    // Empty the checkpoint buffer after writing its contents to disk
+    cb_entry_t **buffer = checkpoint_buffer->buffer;
+    int i, content_length;
+    bool result;
+    void *content;
+    for(i = 0; i < checkpoint_buffer->blocks_used; i++) {
+        content = buffer[i]->content;
+        content_length = buffer[i]->content_length;
+        result = vdisk_write(block_number++, content, 0, content_length, NULL);
+        if(!result) {
+            fprintf(stderr, "ERROR: Flush Failed. Could not write buffer to disk. Terminating flush.\n");
+            // reset checkpoint buffer 
+            destroy_checkpoint_buffer();
+            init_checkpoint_buffer();
+            return;
+        }
+    }
+    
+    free_block_list->next_available = block_number;
+    for(i = 0; i < checkpoint_buffer->blocks_used; i++) {
+        free(checkpoint_buffer->buffer[i]);
+    }
+    checkpoint_buffer->blocks_used = 0;
+    set_entire_vector(checkpoint_buffer->dirty_inode_list);
+
+    // Update the data structures on disk
+    result = vdisk_write(FREE_BLOCK_LIST_BLOCK_NUMBER, free_block_list->vector,
+        0, BITS_PER_BIT_VECTOR/8, NULL);
+    if(!result) {
+        fprintf(stderr, "ERROR: Flush Failed. Terminating flush.\n");
+        exit(1);
+    }
+    result = vdisk_write(FREE_INODE_LIST_BLOCK_NUMBER, free_inode_list->vector,
+        0, BITS_PER_BIT_VECTOR/8, NULL);
+    if(!result) {
+        fprintf(stderr, "ERROR: Flush Failed. Terminating flush.\n");
+        exit(1);
+    }
+    result = vdisk_write(IMAP_BLOCK_NUMBER, imap,
+        0, BYTES_PER_BLOCK, NULL);
+    if(!result) {
+        fprintf(stderr, "ERROR: Flush Failed. Terminating flush.\n");
+        exit(1);
+    }
 }
 
 /* 
@@ -465,15 +619,12 @@ inode_t* find_dir(char* dirpath) {
     return NULL;
 }
 
-// TODO create segment buffer to be sent to disk when full 
-// Need a way to ensure this is written on process end
-    // One way to do this is to put the onus on the user to perform a manual
-    // checkpoint before ending a program which uses this library 
-    // (essentially like closing a file system) 
+// TODO create segment buffer to be sent to disk when full  
 
 // In addition to writing out the segment, we will want to write updates made to
 // free list and inode map since last checkpoint
-
+// Just write all 3 in their entirety, its only 3 io's and its worth it for the
+// simplicity.
 
 
 /*============================= Testing helpers =============================*/
@@ -492,6 +643,22 @@ bitvector_t* _init_free_inode_list() {
     free_inode_list->n = 0;
     free_inode_list->next_available = 10;
     return free_inode_list;
+}
+
+bitvector_t * _get_free_block_list() {
+    return free_block_list;
+}
+
+bitvector_t * _get_free_inode_list() {
+    return free_inode_list;
+}
+
+checkpoint_buffer_t * _get_checkpoint_buffer() {
+    return checkpoint_buffer;
+}
+
+short * _get_imap() {
+    return imap;
 }
 
 void print_inode_details(inode_t* inode) {
