@@ -4,8 +4,14 @@
 
 Hello and welcome. 
 
-TODO talk about the makefile, what it does, how to run it
+```make``` will compile the file system library and the disk library as well as 
+create 2 executables, ```test_vdisk``` and ```test_file``` which are the unit 
+tests for the two libraries.
+
+```make run_unittest``` will do the above compilation and run both unit test suites.
+
 TODO talk about the shell script, what it does, how to run it
+
 TODO talk about the different sections etc of the readme, and possibly write a 
      synopsis for them
 
@@ -37,8 +43,6 @@ The ```disk/``` directory:
 ### __LLFS__
 
 TODO Fill this out similarly to how the vdisk section is done.
-
-<!-- Progress Journal -->
 
 ## My "Journey" as Yvonne likes to say
 
@@ -271,18 +275,11 @@ Design Question: Should we treat files and directories differently for the above
 In order to move forward with implementing first-round versions of these 
 functions, we will need a checkpointing system. 
 
-    On option is to wrap it up in a struct where we can keep track of how full
-    it is and any other metadata we need.
-
-    The actual buffer its self will need an organization scheme too.
-        Option 1: write directly to the buffer as if it were the disk.
-            This could make doing offsets tricky - i.e. we wouldn't be able to 
-            use the offset functionality given by the disk.
-
-        Option 2: have more structure, where the buffer is organized as a list
-        of operations or transactions.
-            This will make the checkpoint buffer its self much more complex, but
-            might help us break things up logically.
+I wrapped a block buffer in a struct where we can keep track of how full it is 
+and any other metadata we need. For now, the buffer size is set to accomodate
+64 blocks. This seems small enough to be reasonable from a resource point of 
+view but large enough that we won't need to go to disk every time something is 
+modified.
 
 [TODO]
 Here is the API I've defined for now. We'll definitely need to add some more 
@@ -332,9 +329,26 @@ recent changes appearing in the buffer.
               perhaps) of inode number of files which have been changed. 
               If we did this with a bit vector we could have very fast lookup 
               time at the cost of 512 bytes of space. This seems like a good 
-              tradeoff, so we'll take it!
-              TODO add a dirty bitvector to the checkpoint structure 
+              tradeoff, so we'll take it! 
 
+              Added a dirty_inode_list to the checkpoint buffer struct to let us
+              track this.
+
+
+its getting pretty tough to track where we're at on disk and in memory just using
+the next_available fields in the bitvectors. It might be better to add two globals
+to tell us where we're at in each. i.e. where the end of log is on disk and where 
+it is in memory. Right now, we just have free_block_list->next_available which gives
+the address of the next available block given the state in memory. We don't have a 
+direct index for the spot immediately after the log on disk. We can find it by taking
+the value above and subtracting the number of items in the checkpoint buffer though.
+
+Added filename validation to the create_file function to check that it not malformed
+and does not already exist in the parent directory specified. It now relies on a few
+other functions including get_dir_entries which is unimplmented (and obviously untested).
+
+[TODO] I changed the get_inode_block function to grab from the checkpoint buffer, 
+and this needs to be reflected in the test for this function 
 
 [TODO] Another thing to we need to figure out is the inode cache that we're 
 going to use. It feels easiest to hold an array of arrays of inode_t pointers,
@@ -345,6 +359,15 @@ oldest block of inodes to make room for another one. This would let us do either
 a FIFO policy, or a LRU policy if we allow shuffling the queue when we use 
 something already in it. This seems like a better way to go, but it is a little
 more complicated.
+
+Its looking like this isn't going to get done; I have a final on the 11th that I
+need to put time in to study for, so this is going to be as far as I get. As above,
+what I would have liked to do would be the following:
+- Implement find_dir to parse through the directory tree and return the inode of the directory passed in. From here, we would be able to support all our operations in directories other than root. 
+- 
+- 
+- 
+
 
 ### Misc Notes
 

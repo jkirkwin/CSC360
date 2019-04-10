@@ -11,7 +11,7 @@
 #include "file.h"
 #include "../disk/vdisk.h"
 
-#define NUM_TESTS 12
+#define NUM_TESTS 15
 
 // ====  ==== ==== ====  Test method declarations go here ==== ==== ====
 
@@ -28,6 +28,9 @@ bool test_get_inode_block();
 bool test_add_entry_to_checkpoint_buffer();
 bool test_flush_LLFS();
 bool test_create_file_in_root_dir();
+bool test_get_block();
+bool test_get_blocks();
+bool test_get_dir_entries();
 
 // Helper
 bool test_superblock_write();
@@ -47,7 +50,10 @@ char *test_names[NUM_TESTS] = {
     "test_get_inode_block",
     "test_add_entry_to_checkpoint_buffer",
     "test_flush_LLFS",
-    "test_create_file_in_root_dir"
+    "test_create_file_in_root_dir",
+    "test_get_block",
+    "test_get_blocks",
+    "test_get_dir_entries"
 };
 
 // ==== ==== ==== ==== Helper methods go here ==== ==== ==== ==== ==== 
@@ -69,6 +75,9 @@ int main(int argc, char **argv) {
     tests[9] = test_add_entry_to_checkpoint_buffer;
     tests[10] = test_flush_LLFS;
     tests[11] = test_create_file_in_root_dir;
+    tests[12] = test_get_block;
+    tests[13] = test_get_blocks;
+    tests[14] = test_get_dir_entries;
 
     int passed = 0, failed = 0;
     for(int i = 0; i < NUM_TESTS; i++) {
@@ -558,6 +567,24 @@ bool test_flush_LLFS() {
 
 bool test_create_file_in_root_dir() {
     // TODO
-    printf("\tUNIMPLEMENTED\t");
+    VERBOSE_PRINT("\n\t--UNIMPLEMENTED\n\t");
+    return false;
+}
+
+bool test_get_block() {
+    // TODO
+    VERBOSE_PRINT("\n\t--UNIMPLEMENTED\n\t");
+    return false;
+}
+
+bool test_get_blocks() {
+    // TODO
+    VERBOSE_PRINT("\n\t--UNIMPLEMENTED\n\t");
+    return false;
+}
+
+bool test_get_dir_entries() {
+    // TODO
+    VERBOSE_PRINT("\n\t--UNIMPLEMENTED\n\t");
     return false;
 }

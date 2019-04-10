@@ -101,6 +101,11 @@ void flush_LLFS();
 void defrag_LLFS(); 
 void terminate_LLFS(); // Should be called on shutdown
 
+bool is_valid_filename(char * filename);
+dir_entry_t **get_dir_entries(inode_t *dir_inode);
+void *get_block(short block_number);
+void **get_blocks(inode_t *inode);
+
 // Create
 inode_t *create_file(char *filename, char *path_to_parent_dir); 
 inode_t *mkdir(char * dirname, char *path_to_parent_dir); 

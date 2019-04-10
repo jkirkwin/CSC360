@@ -200,6 +200,8 @@ short get_inode_free_list_key(short inode_id) {
 
 /*
  * Returns the content of the specified inode block as an array of 16 inodes.
+ * Retrieves the latest copy of the block from disk or the checkpoint buffer
+ * as appropriate.
  */ 
 inode_t* get_inode_block(short inode_block_key) {
     inode_t *inodes = (inode_t *) malloc(BYTES_PER_BLOCK);
@@ -207,10 +209,18 @@ inode_t* get_inode_block(short inode_block_key) {
         fprintf(stderr, "ERROR: Could not allocate memory for inode block\n");
         return NULL;
     }
-    if(!vdisk_read(imap[inode_block_key], inodes, NULL)) {
-        fprintf(stderr, "ERROR: Could not read inode block\n");
-        free(inodes);
-        return NULL;
+    short block_num = imap[inode_block_key];
+    int end_of_disk_log = free_block_list->next_available - 1 - checkpoint_buffer->blocks_used;
+    if(block_num <= end_of_disk_log) {
+        if(!vdisk_read(block_num, inodes, NULL)) {
+            fprintf(stderr, "ERROR: Could not read inode block\n");
+            free(inodes);
+            return NULL;
+        }
+    } else {
+        // retrieve it from the buffer
+        short offset = block_num - free_block_list->next_available - 1;
+        return (inode_t *) checkpoint_buffer->buffer[offset]->content;
     }
     return inodes;
 } 
@@ -386,7 +396,6 @@ void init_LLFS() {
  * 
  * Defrags the memory if necessary to complete the flush.
  * 
- * TODO test
  */ 
 void flush_LLFS() {
     VERBOSE_PRINT("Flushing checkpoint buffer\n");
@@ -462,9 +471,55 @@ void defrag_LLFS() {
  */ 
 void terminate_LLFS() {
     flush_LLFS();
-    // TODO
-    // Free memory and close any file pointers
+    destroy_checkpoint_buffer();
+    // TODO Free memory and close any file pointers
 
+}
+
+
+/*
+ * Returns a copy of the content of the specified block. If the block number
+ * is for a block which has not yet been flushed, we return the content from the 
+ * checkpoint buffer. Otherwise we must read from the disk.
+ */ 
+void *get_block(short block_number) {
+    VERBOSE_PRINT("Retrieving block %d\n", block_number);
+    char * buffer = malloc(BYTES_PER_BLOCK);
+    if(!buffer) {
+        fprintf(stderr, "ERROR: Failed to allocated space for buffer\n");
+        exit(1);
+    }
+    int disk_log_end = free_block_list->next_available - checkpoint_buffer->blocks_used - 1; // the last block synched to disk
+    if(block_number <= disk_log_end) {
+        vdisk_read(block_number, buffer, NULL);
+    } else {
+        int offset = block_number - disk_log_end - 1;
+        void *content = checkpoint_buffer->buffer[offset]->content;
+        int content_length = checkpoint_buffer->buffer[offset]->content_length;
+        memcpy(buffer, content, content_length);
+    }
+    return buffer;
+}
+
+/* 
+ * Checks that the given filename is valid. File names are not allowed to have 
+ * any special characters in them. Filenames must be null-terminated and have a
+ * size limit.
+ */ 
+bool is_valid_filename(char *filename) {
+    int length = strlen(filename);
+    if(length > MAX_FILENAME_LENGTH || length <= 0) {
+        printf("File name must 1 to 30 characters and be null terminated\n");
+        return false;
+    }
+    for(int i = 0; i < length; i++) {
+        char c = filename[i];
+        if( !('a' <= c && c <= 'z') && !('A' <= c && c <= 'Z') && !('1' <= c && c <= '9')) {
+            printf("special characters cannot exist in file names\n");
+            return false;
+        }
+    }
+    return true;
 }
 
 /*
@@ -474,23 +529,18 @@ void terminate_LLFS() {
  * otherwise.
  */ 
 inode_t *create_file(char *filename, char *path_to_parent_dir) {
-    // TODO
-    // For now we'll make the following simplifications:
-        // 1. the parent will be assumed to be root.
-        // 2. changes will be written directly to disk (without using a checkpoint 
-        //    buffer)
+    // TODO test
+    
+    // TODO For now the parent will be assumed to be root.
 
-    // note that in creating a file, we only ever need to consume one block
-    // as all we're really doing is changing the inode block.
-    // TODO add following checks
-    // if(checkpoint buffer is full) {
-    //     fflush();
-    // }
-
+    // Ensure we have room for this.
+    if(checkpoint_buffer->blocks_used >= CHECKPOINT_BUFF_SIZE) {
+        flush_LLFS();
+    }
 
     // Use root dir as default parent for now.
     int root_inode_block = imap[get_block_key_from_id(ROOT_ID)];
-    inode_t *root_inode = get_inode_block(root_inode_block);
+    inode_t *root_inode = get_inode_block(root_inode_block); // TODO free this
 
     // TODO Find parent directory instead of using root as is done above.
     // inode_t *parent_inode = find_dir(path_to_parent_dir);
@@ -500,12 +550,24 @@ inode_t *create_file(char *filename, char *path_to_parent_dir) {
     // }
     inode_t *parent_inode = root_inode; // TODO change
 
-    // TODO Validate filename 
-    // - Ensure it is within the allowed bounds
-    // - Ensure it does not contain any slashes or other special characters other 
-    //   than a single '.'
-    // - Check that a file with that name does not already exist in the parent
-    // - directory 
+    // Validate filename form
+    if(!is_valid_filename(filename)) {
+        return NULL;
+    }
+
+    // Check that a file with that name does not already exist in the parent directory
+    dir_entry_t** dir_entries = get_dir_entries(parent_inode); // TODO this is unimplemented
+    int i = 0, filename_len = strlen(filename);
+    dir_entry_t *p = dir_entries[0];
+    while(p != NULL) { 
+        if(strlen(p->filename) != filename_len || strncmp(filename, p->filename, filename_len)) {
+            printf("A file of this name already exists in this directory\n");
+            free(dir_entries);
+            return NULL;
+        }
+        p = dir_entries[i++];
+    } 
+    free(dir_entries);
 
     // Allocate inode for the file
     short inode_id = generate_inode_id(false);
@@ -516,18 +578,24 @@ inode_t *create_file(char *filename, char *path_to_parent_dir) {
     }
     clear_vector_bit(free_inode_list, get_inode_free_list_key(inode_id));
 
-    // TODO Add the inode block to the checkpoint buffer
+    // Add the inode block to the checkpoint buffer
+    short inode_block_key = get_block_key_from_id(inode_id);
+    inode_t *inode_block = get_inode_block(inode_block_key); 
+    short offset = get_offset_from_inode_id(inode_id);
+    inode_block[offset] = *file_inode;
+    add_entry_to_checkpoint_buffer(inode_block, sizeof(inode_t) * INODES_PER_BLOCK, inode_id);
+    free(inode_block);
 
-    // mark the previous data block as unused.
-    set_vector_bit(free_block_list, imap[get_block_key_from_id(inode_id)]);
-    
     // TODO check whether we need to defrag before consuming the block
 
-    // get a new spot for the inode block and update the inode map
-    short new_inode_location = consume_block();
-    free_block_list->next_available++; // TODO check whether we need to defrag instead of this
+    // mark the previous data block as unused and replace with the new one
+    set_vector_bit(free_block_list, imap[get_block_key_from_id(inode_id)]);
+    short new_inode_location = consume_block();    
+    free_block_list->next_available++; 
+
+    // update the inode map
     imap[get_block_key_from_id(inode_id)] = new_inode_location; 
-        
+
     VERBOSE_PRINT("Created new file '%s' in root directory\n", filename);
     return file_inode;
 }
@@ -584,6 +652,111 @@ char **get_dir_contents(char *dirname) {
 }
 
 /*
+ * Return all blocks associated with the inode in the form of a null-terminated 
+ * void **.
+ */ 
+void **get_blocks(inode_t *inode) {
+    // TODO Test
+    
+    VERBOSE_PRINT("Getting blocks for inode %d\n", inode->id);
+
+    // alloc enough memory for pointers plus a null terminator
+    int allowed_blocks = 11;
+    bool has_single_ind = false;
+    if(inode->single_ind_block != INODE_FIELD_NO_DATA) {
+        has_single_ind = true;
+        allowed_blocks += 256;
+    }
+    bool has_double_ind = false;
+    if(inode->double_ind_block != INODE_FIELD_NO_DATA) {
+        has_double_ind = true;
+        allowed_blocks += 256*256;
+    }
+    void **blocks = calloc(allowed_blocks, sizeof(void *)); // Calloc ensures null-termination
+    
+    // Direct blocks
+    int index, block_num;
+    for(index = 0; index < 10; index++) {
+        block_num = inode->direct[index];
+        if(block_num == INODE_FIELD_NO_DATA) {
+            return blocks;
+        }
+        blocks[index] = get_block(block_num);
+    }
+
+    // Single indirect blocks
+    if(!has_single_ind) {
+        return blocks;
+    }
+    short *ind_block = get_block(inode->single_ind_block);
+    for(int i = 0; i < 256; i++) {
+        block_num = ind_block[i];
+        if(block_num == INODE_FIELD_NO_DATA) {
+            free(ind_block);
+            return blocks;
+        }
+        blocks[index++] = get_block(block_num);
+    }
+    free(ind_block);
+
+    // Double indirect blocks
+    if(!has_double_ind) {
+        return blocks;
+    }
+    short *double_ind_block = get_block(inode->double_ind_block);
+    for(int i = 0; i < 256; i++) {
+        if(double_ind_block[i] == INODE_FIELD_NO_DATA) {
+            free(double_ind_block);
+            return blocks;
+        }
+        ind_block = get_block(double_ind_block[i]);
+        for(int j = 0; j < 256; j++) {
+            block_num = ind_block[j];
+            if(block_num == INODE_FIELD_NO_DATA) {
+                free(ind_block);
+                free(double_ind_block);
+                return blocks;
+            }
+            blocks[index++] = get_block(block_num);
+        }
+        free(ind_block);
+    }
+    free(double_ind_block);
+    return blocks;
+}
+
+/*
+ * Returns a NULL-terminated list of the entries for all files in the directory.
+ */ 
+dir_entry_t **get_dir_entries(inode_t *dir_inode) {
+    // TODO test
+    VERBOSE_PRINT("Getting directory entries\n");
+
+    void **blocks = get_blocks(dir_inode);
+    int entries_per_block = BYTES_PER_BLOCK / sizeof(dir_entry_t);
+    int num_entries = dir_inode->file_size / sizeof(dir_entry_t);
+    int num_blocks = num_entries / entries_per_block;
+
+    dir_entry_t **entries = calloc(num_entries + 1, sizeof(dir_entry_t*));
+
+    int index = 0;
+    dir_entry_t *block_entries;
+    for(int i = 0; i < num_blocks; i++) {
+        block_entries = (dir_entry_t *) blocks[i];
+        for(int j = 0; j < entries_per_block; j++) {
+            if(index >= num_entries) {
+                free(blocks);
+                return entries;
+            }
+            *entries[index++] = block_entries[j]; // TODO make sure this works
+        }
+    }
+
+    free(blocks);
+    return entries;
+}
+
+/*
  * Reads up to buffer_size bytes from the specified file into the buffer. Does
  * not pad the buffer if it exceeds the size of the file.
  * 
@@ -593,7 +766,23 @@ char **get_dir_contents(char *dirname) {
  * the file system.
  */ 
 int read_file(void *buffer, int buffer_size, char *filename) {
-    // TODO
+    // TODO For now only allow for the file to be in the root directory
+
+    // TODO remove this and find actual parent
+    int root_inode_block = imap[get_block_key_from_id(ROOT_ID)];
+    inode_t *root_inode = get_inode_block(root_inode_block); // TODO free this
+    
+    inode_t *parent_inode = root_inode; // TODO change this
+
+    /* TODO
+     *      1. check that the file is in the root directory for root [get_dir_entries()]
+     *      2. use the imap with the dir_entry for the file to find the inode location
+     *      3. get the inode block containing the file's [inode get_inode_block()]
+     *      4. retrieve the inode for the file get_inode
+     *      5. get the blocks for the file [get_blocks()]
+     *      6. copy the contents of the blocks into the buffer given (up to its capacity)    
+     */ 
+    
     return -1;
 }
 
@@ -618,14 +807,6 @@ inode_t* find_dir(char* dirpath) {
     // TODO
     return NULL;
 }
-
-// TODO create segment buffer to be sent to disk when full  
-
-// In addition to writing out the segment, we will want to write updates made to
-// free list and inode map since last checkpoint
-// Just write all 3 in their entirety, its only 3 io's and its worth it for the
-// simplicity.
-
 
 /*============================= Testing helpers =============================*/
 
