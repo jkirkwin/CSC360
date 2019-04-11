@@ -11,7 +11,7 @@
  */ 
 
 int main() {
-    printf("Test1\n");
+    printf("\n-----Test01-----\n");
     // Fork a process that writes to a vdisk in the current directory
     // Wait for it to finish
     // read from the vdisk and make sure that the content is the same.
