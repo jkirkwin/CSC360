@@ -120,8 +120,18 @@ bool vdisk_write(int block_number, void *content, int offset, int content_length
         path = get_vdisk_path();
         fp = fopen(path, "rb+");
         if(!fp) {
-            fprintf(stderr, "Write Failed: cannot open vdisk\n");
-            return false;
+            printf("Creating new vdisk\n");
+            fp = fopen(path, "ab+");
+            if(!fp) {
+                printf("Disk creation failed\n");
+                return false;
+            }
+            fclose(fp);
+            fp = fopen(path, "rb+");
+
+            // printf("path = '%s'\n", path);
+            // fprintf(stderr, "Write Failed: cannot open vdisk\n");
+            // return false;
         }
     }   
     fseek(fp, BYTES_PER_BLOCK * block_number + offset, SEEK_SET);
