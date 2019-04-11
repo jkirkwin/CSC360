@@ -1,6 +1,6 @@
 CFLAGS=-std=c11 -Wall
 
-all : vdisk.o file.o unittest
+all : vdisk.o file.o unittest test01
 
 vdisk.o : ./disk/vdisk.c ./disk/vdisk.h
 	gcc ${CFLAGS} -c ./disk/vdisk.c
@@ -15,6 +15,9 @@ unittest : vdisk.o file.o ./io/test_file.c ./disk/test_vdisk.c
 run_unittest : unittest
 	./test_vdisk
 	./test_file
+
+test01: ./apps/test01.c vdisk.o
+	gcc ${CFLAGS} vdisk.o ./apps/test01.c -o test01
 
 clean : 
 	rm -rf *.exe *.o ./*/*.o ./*/*.exe

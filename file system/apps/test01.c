@@ -1,5 +1,7 @@
 #include <stdio.h>
-#include <stdlb.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h> 
 
 #include "../disk/vdisk.h"
 
@@ -17,7 +19,7 @@ int main() {
     printf("Creating oracle string to write and read back from the disk\n");
     char oracle[512]; 
     char result[512]; 
-    char c = 'a'
+    char c = 'a';
     for(int i = 0; i < 512; i++) {
         oracle[i] = c++;
     }
@@ -26,7 +28,7 @@ int main() {
     printf("Forking child process to write to the disk\n");
     int pid = fork();
     if(pid < 0) {
-        fprintf(stderr, "Fork failed. Cannot run test\n");
+        printf("Fork failed. Cannot run test\n");
         exit(1);
     }
     if(0 == pid) {
