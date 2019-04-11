@@ -20,7 +20,7 @@ int main() {
     printf("mounting vdisk with call to init_LLFS()\n");
     init_LLFS();
 
-    int superblock_buff[3];
+    int superblock_buff[512/sizeof(int)];
     vdisk_read(0, superblock_buff, NULL);
     if(superblock_buff[0] != MAGIC_NUMBER) {
         printf("Magic Number not found, disk mount failed\n");
