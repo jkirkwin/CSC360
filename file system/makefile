@@ -19,5 +19,8 @@ run_unittest : unittest
 test01: ./apps/test01.c vdisk.o
 	gcc ${CFLAGS} vdisk.o ./apps/test01.c -o test01
 
+test02: ./apps/test02.c vdisk.o
+	gcc ${CFLAGS} vdisk.o ./apps/test02.c -o test02
+
 clean : 
 	rm -rf *.exe *.o ./*/*.o ./*/*.exe
