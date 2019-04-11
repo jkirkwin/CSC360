@@ -14,7 +14,7 @@ int main() {
     printf("\n-----Test02-----\n");
     // Note that in order for this to make sense, there should be no vdisk in the cwd
 
-    printf("Writingto create the disk\n");
+    printf("Writing to create the disk\n");
     vdisk_write(0, "abc", 0, 3, NULL);
 
     printf("mounting vdisk with call to init_LLFS()\n");
