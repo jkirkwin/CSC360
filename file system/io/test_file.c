@@ -50,10 +50,10 @@ char *test_names[NUM_TESTS] = {
     "test_get_inode_block",
     "test_add_entry_to_checkpoint_buffer",
     "test_flush_LLFS",
-    "test_create_file_in_root_dir",
     "test_get_block",
     "test_get_blocks",
-    "test_get_dir_entries"
+    "test_get_dir_entries",
+    "test_create_file_in_root_dir"
 };
 
 // ==== ==== ==== ==== Helper methods go here ==== ==== ==== ==== ==== 
@@ -74,10 +74,10 @@ int main(int argc, char **argv) {
     tests[8] = test_get_inode_block;
     tests[9] = test_add_entry_to_checkpoint_buffer;
     tests[10] = test_flush_LLFS;
-    tests[11] = test_create_file_in_root_dir;
-    tests[12] = test_get_block;
-    tests[13] = test_get_blocks;
-    tests[14] = test_get_dir_entries;
+    tests[11] = test_get_block;
+    tests[12] = test_get_blocks;
+    tests[13] = test_get_dir_entries;
+    tests[14] = test_create_file_in_root_dir;
 
     int passed = 0, failed = 0;
     for(int i = 0; i < NUM_TESTS; i++) {
@@ -565,16 +565,52 @@ bool test_flush_LLFS() {
     return true;
 }
 
-bool test_create_file_in_root_dir() {
-    // TODO
-    VERBOSE_PRINT("\n\t--UNIMPLEMENTED\n\t");
-    return false;
-}
-
+/*
+ * Relies on test_add_entry_to_checkpoint_buffer.
+ */ 
 bool test_get_block() {
-    // TODO
-    VERBOSE_PRINT("\n\t--UNIMPLEMENTED\n\t");
-    return false;
+    // Test getting a block from disk and one which has not yet been flushed
+
+    init_LLFS();
+    bitvector_t *free_block_list = _get_free_block_list();
+
+    // Write a block to disk
+    char disk_oracle[512];
+    int disk_location = free_block_list->next_available - 1;
+    for(int i = 0; i < 512; i++) {
+        disk_oracle[i] = 'a' + (i % 26);
+    }
+    disk_oracle[511] = '\0';
+    vdisk_write(disk_location, disk_oracle, 0, 512, NULL);
+
+    // Write a block to the buffer 
+    char buffer_oracle[512];
+    int buffer_location = free_block_list->next_available;
+    for(int i = 0; i < 512; i++) {
+        buffer_oracle[i] = 'A' + (i % 26);
+    }
+    buffer_oracle[511] = '\0';
+    add_entry_to_checkpoint_buffer(buffer_oracle, 512, 0);
+    free_block_list->next_available++;
+
+    // Retrieve block from disk
+    VERBOSE_PRINT("\n\t--should retrieve block %d\n", disk_location);
+    char *disk_result = get_block(disk_location);
+    if(strncmp(disk_result, disk_oracle, 512)) {
+        printf(" Disk block retrieved incorrectly ");
+        return false;
+    }
+
+    // Retrieve block from the buffer 
+    VERBOSE_PRINT("\n\t--should retrieve block %d\n", buffer_location);
+    char *buffer_result = get_block(buffer_location);
+    if(strncmp(buffer_result, buffer_oracle, 512)) {
+        printf(" Buffer block retrieved incorrectly ");
+        return false;
+    }
+
+    VERBOSE_PRINT("\n\t--Retrieved blocks from disk and checkpoint buffer successfully\n\t");
+    return true;
 }
 
 bool test_get_blocks() {
@@ -584,6 +620,12 @@ bool test_get_blocks() {
 }
 
 bool test_get_dir_entries() {
+    // TODO
+    VERBOSE_PRINT("\n\t--UNIMPLEMENTED\n\t");
+    return false;
+}
+
+bool test_create_file_in_root_dir() {
     // TODO
     VERBOSE_PRINT("\n\t--UNIMPLEMENTED\n\t");
     return false;

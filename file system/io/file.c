@@ -232,6 +232,8 @@ inode_t* get_inode_block(short inode_block_key) {
  * Adds a block of content to the checkpoint buffer and marks the associated
  * inode as dirty.
  * 
+ * Does NOT increment free_block_list->next_available
+ * 
  * @pre there must be room for at least one more block in the checkpoint buffer 
  * 
  * @pre init_checkpoint_buffer must have been called
@@ -491,9 +493,11 @@ void *get_block(short block_number) {
     }
     int disk_log_end = free_block_list->next_available - checkpoint_buffer->blocks_used - 1; // the last block synched to disk
     if(block_number <= disk_log_end) {
+        VERBOSE_PRINT("Reading the block from disk\n");
         vdisk_read(block_number, buffer, NULL);
     } else {
         int offset = block_number - disk_log_end - 1;
+        VERBOSE_PRINT("Reading the block from the checkpoint buffer [offset=%d]\n", offset);
         void *content = checkpoint_buffer->buffer[offset]->content;
         int content_length = checkpoint_buffer->buffer[offset]->content_length;
         memcpy(buffer, content, content_length);
