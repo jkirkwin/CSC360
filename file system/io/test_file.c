@@ -614,9 +614,97 @@ bool test_get_block() {
 }
 
 bool test_get_blocks() {
-    // TODO
-    VERBOSE_PRINT("\n\t--UNIMPLEMENTED\n\t");
-    return false;
+    // Test 3 cases:
+    // 1. no associated blocks for the inode (1 edge case)
+    // 2. 5 associated blocks for the inode (direct pointers only)
+    // 3. 200 associated blocks for the inode (direct and single indirect)
+
+    init_LLFS();
+    inode_t *empty_inode, *direct_inode, *indirect_inode;
+
+    // Write 200 blocks to be used in the test
+    bitvector_t *free_block_list = _get_free_block_list();
+    int first_block = free_block_list->next_available;
+    int buffer[16]; // 16 ints fit in one block 
+    for(int i = 0; i < 200; i++) {
+        // write a block
+        for(int j = 0; j < 16; j++) {
+            buffer[j] = i + 1; // Fill the buffer with an int (1-200)
+        }
+        // printf("Writing block %d\n", free_block_list->next_available);
+        vdisk_write(free_block_list->next_available++, buffer, 0, 512, NULL);
+    }
+
+    // Set up the direct pointers
+    short direct[10];
+    for(short i = 0; i < 10; i++) {
+        direct[i] = first_block + i;
+    }
+
+    // Set up the indirect block
+    short indirect[200 - 10 + 1];
+    for(short i = 0; i < 190; i++) {
+        // printf("indirect[%d] = %d\n", i, first_block + 10 + i);
+        indirect[i] = first_block + 10 + i;
+    }
+    indirect[190] = INODE_FIELD_NO_DATA;
+    int ind_block = free_block_list->next_available;
+    vdisk_write(ind_block, indirect, 0, sizeof(short) * 191, NULL);
+    free_block_list->next_available++;
+
+    // Set up the inodes
+    int direct_size = BYTES_PER_BLOCK * 4 + 10; // needs 5 blocks
+    int indirect_size = BYTES_PER_BLOCK * 200; // needs 200 blocks
+    empty_inode = create_empty_inode(1, ROOT_ID);
+    direct_inode = create_inode(direct_size, 2, ROOT_ID, direct, 5, INODE_FIELD_NO_DATA, INODE_FIELD_NO_DATA);
+    indirect_inode = create_inode(indirect_size, 3, ROOT_ID, direct, 10, ind_block, INODE_FIELD_NO_DATA);
+    VERBOSE_PRINT("\n\t--3 inodes created and initialized\n\t");
+
+    // Verify the blocks returned
+    void **empty_result = get_blocks(empty_inode);
+    void **direct_result = get_blocks(direct_inode); 
+    void **indirect_result = get_blocks(indirect_inode); 
+    VERBOSE_PRINT("\n\t--block lists obtained for each inode\n\t");
+
+    // Validate first result
+    if(empty_result[0] != NULL) {
+        printf("empty block list does not start with NULL\n");
+    }
+
+    // // Validate second result
+    int *result;
+    for(int i = 0; i < 5; i++) {
+        result = (int *) direct_result[i];
+        for(int j = 0; j < 16; j++) {
+            if(result[j] != i+1) {
+                printf("incorrect block found in the direct inode's list\n");
+                return false;
+            }
+        }
+    }
+    if(direct_result[5] != NULL) {
+        printf("direct block list does not have expected NULL terminator\n");
+        return false;
+    }
+
+    // Validate last result
+    for(int i = 0; i < 200; i++) {
+        result = (int *) indirect_result[i];
+        for(int j = 0; j < 16; j++) {
+            if(result[j] != i+1) {
+                printf("incorrect block found in the indirect inode's list\n");
+                return false;
+            }
+        }
+    }
+    if(indirect_result[200] != NULL) {
+        printf("indirect block list does not have expected NULL terminator\n");
+        return false;
+    }
+
+
+    VERBOSE_PRINT("\n\t--All three block lists have correct content and are null terminated\n\t");
+    return true;
 }
 
 bool test_get_dir_entries() {

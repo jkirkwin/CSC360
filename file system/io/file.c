@@ -677,16 +677,20 @@ void **get_blocks(inode_t *inode) {
         allowed_blocks += 256*256;
     }
     void **blocks = calloc(allowed_blocks, sizeof(void *)); // Calloc ensures null-termination
-    
+    VERBOSE_PRINT("Allocated space for %d block pointers (including null terminator)\n", allowed_blocks);
+
     // Direct blocks
-    int index, block_num;
+    int index;
+    short block_num;
     for(index = 0; index < 10; index++) {
         block_num = inode->direct[index];
         if(block_num == INODE_FIELD_NO_DATA) {
+            blocks[index] = NULL;
             return blocks;
         }
         blocks[index] = get_block(block_num);
     }
+    VERBOSE_PRINT("Added Direct Blocks\n");
 
     // Single indirect blocks
     if(!has_single_ind) {
@@ -696,12 +700,14 @@ void **get_blocks(inode_t *inode) {
     for(int i = 0; i < 256; i++) {
         block_num = ind_block[i];
         if(block_num == INODE_FIELD_NO_DATA) {
+            blocks[index] = NULL;
             free(ind_block);
             return blocks;
         }
-        blocks[index++] = get_block(block_num);
+        blocks[index++] = get_block(block_num); // seg faulting
     }
     free(ind_block);
+    VERBOSE_PRINT("Added Single Indirect Blocks\n");
 
     // Double indirect blocks
     if(!has_double_ind) {
@@ -725,6 +731,7 @@ void **get_blocks(inode_t *inode) {
         }
         free(ind_block);
     }
+    VERBOSE_PRINT("Added Double Indirect Blocks\n");
     free(double_ind_block);
     return blocks;
 }
