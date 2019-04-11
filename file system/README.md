@@ -4,16 +4,58 @@
 
 Hello and welcome. 
 
+My disk implementation is pretty simple and intuitive. See the API below for details,
+but it has a read fucntion and a write function, each of which uses one block. 
+
+The file system its self is in file.c. Were I to do it again I would have ignored
+the instruction to make it all in one file, as it is very unweildy and messy at just 
+under 1kloc.
+
+In the readme I have a synopsis of the user API for the file system. Much of this 
+is not yet fully functional, so I would encourage you to take a look at all of the
+supporting framework functionality that would be used in implementations. For example,
+for writing a file I have methods to find the blocks used for the file, data structures
+to support checkpointing the written blocks, etc. 
+
+If you would also like a structural overview, have a look into the file.h header file.
+It is easier to parse than the source code file I think.
+
+You will find a discussion of some of the design decisions and challenges I came 
+up against (Yvonne wanted us to call it "[our] journey"...) down below in the 
+README. There are two design decisions I would like to highlight. 
+1. The choice to allow for 64 blocks to reside in the checkpoint buffer. This 
+prevents me from doinglots and lots of io, but still allows for pretty consistent 
+automated synching to disk meaning that little data will be lost. Users are also
+able to make use of the flush_LLFS function to make sure that their changes are 
+pervasive. This makes the system robust in the face of crashes. 
+2. The other decision I would like to highlight is the use of a level of indirection
+for the inode map, allowing us to have 4096 inodes (more than the maximum number
+of non-empty files, given the disk size) as opposed to the 256 allowed if we only
+used one byte for the inode id's. This was suggested in the spec as we are only supposed
+to use 1 byte for the inode number in directory entries, but to get around this 
+constraint I just stored the block key for the inode in these entries. (See below
+for more info on how I structured my inodes).
+
+For testing, I tried to write unit tests for everything I implemented, as I implemented it.
+That said, there are a handful of functions that are not yet tested in file.c because either
+they are simple and a dependency of others which were tested or because I didn't yet have time.
+
+Unit tests for the disk controller are in disk/test_vdisk.c. 
+Unit tests for the file system are in io/test_file.c. 
+
 ```make``` will compile the file system library and the disk library as well as 
 create 2 executables, ```test_vdisk``` and ```test_file``` which are the unit 
 tests for the two libraries.
 
 ```make run_unittest``` will do the above compilation and run both unit test suites.
 
-TODO talk about the shell script, what it does, how to run it
+I tried to strike a balance on the unit test being verbose and the output being easy to parse.
+One in particular (file.c test 13) spits out a bunch of garbage due to repeated function calls
+but this output is needed to make the other tests make sense. Sorry about that!
 
-TODO talk about the different sections etc of the readme, and possibly write a 
-     synopsis for them
+TODO write test01, test02 and talk about them
+
+TODO talk about the shell script, what it does, how to run it
 
 ## APIs and spec notes
 
@@ -42,7 +84,60 @@ The ```disk/``` directory:
 
 ### __LLFS__
 
-TODO Fill this out similarly to how the vdisk section is done.
+The full LLFS API is too messy/big to write out here and have it be meaningful.
+The user-accesssible functions are:
+
+```void init_LLFS();```
+Format and mount the disk [implemented and tested]
+
+```void flush_LLFS();```
+Flush changes from the checkpoint buffer to disk [implemented and tested]
+
+```void defrag_LLFS();```
+Move chunks of disk back to fill holes and make more space for the log [unmplemented]
+
+To implement this my idea is to iterate from the end of the disk. Each time I hit an inode block,
+move all associated data blocks back in order to fill holes (I would have a counter indicating where the
+next gap is, starting from the beginning). This wouldn't be too resource intensive and 
+would certainly allow much more room for the log to grow.
+
+```void terminate_LLFS();```
+Flush the disk and free used memory [implemented and tested]
+
+```inode_t *create_file(char *filename, char *path_to_parent_dir);```
+Create a new, empty, non-directory file in the parent given [implemeneted but not thoroughly tested]
+
+```inode_t *mkdir(char * dirname, char *path_to_parent_dir); ```
+Create a new empty directory as a subdirectory of the parent given [unimplemented]
+
+To implement this I would be able to reuse a lot of the code from create_file, but making 
+sure to set the dir flag for the inode
+
+```int write(void* content, int content_length, int offset, char *filename); ```
+Overwrite/add to the file at a given offset. [unimplemented]
+
+To implement, this would require the use of create_file if no such file currently 
+exists, and then just adding data blocks to the inode corresponding to that file.
+
+```int append(char *content, int content_length, char *filename); ```
+Same as write, but with offset equal to file length (i.e. no overwriting can happen). [unimplemented]
+
+To implement, this would require the use of create_file if no such file currently 
+exists, and then just adding data blocks to the inode corresponding to that file.
+
+```char **get_dir_contents(char *dirname);```
+Returns a list of the filenames in a given directory
+
+```int read_file(void *buffer, int buffer_size, char *filename); ```
+Copies content from the file's data blocks into the buffer [implemented but untested]
+
+```bool rm(char *filename);```
+Remove the specified file or directory [unimplemented]
+
+To implement this would be fairly simple, but should come after the above operations 
+so that they can be used in testing. The just involves verifying that if it is a directory
+that it is empty, removing the pointer to it from its parent inode (id is stored in its inode)
+and freeing the associated data and inode blocks.
 
 ## My "Journey" as Yvonne likes to say
 
@@ -270,7 +365,6 @@ Design Question: Should we treat files and directories differently for the above
     strings of bytes representing multiple data types.
     We will separate file and directory reading functions, but we can certainly 
     re-use some of the code.
-
                 
 In order to move forward with implementing first-round versions of these 
 functions, we will need a checkpointing system. 
@@ -279,16 +373,17 @@ I wrapped a block buffer in a struct where we can keep track of how full it is
 and any other metadata we need. For now, the buffer size is set to accomodate
 64 blocks. This seems small enough to be reasonable from a resource point of 
 view but large enough that we won't need to go to disk every time something is 
-modified.
+modified. I also added helper functions to add blocks to it, retrieve stuff from it,
+set it up, and destroy it.
 
 [TODO]
 Here is the API I've defined for now. We'll definitely need to add some more 
 functions as we go. We need tests for these too!
 
-    void init_LLFS()
-    void terminate_LLFS()
-    void flush_LLFS()
-    void defrag_LLFS()
+    void init_LLFS()        DONE
+    void terminate_LLFS()   Can wait until the end, mainly just uses flush
+    void flush_LLFS()       DONE
+    void defrag_LLFS()      
 
     inode_t *create_file(char *filename, char *path_to_parent_dir) 
     inode_t *mkdir(char * dirname, char *path_to_parent_dir)
@@ -304,11 +399,10 @@ functions as we go. We need tests for these too!
 
 It is also worth noting here that we need to make sure that root cannot be rm'd. 
 
-In the process of writing read and write, although I'm not yet using a 
-checkpoint buffer, I noticed that we will probably need a flag to tell us 
-whether a given file has unsynched changes in the buffer. This is because if the
-file is not cached (which it probably won't be because I'm unlikely to have time
-to add a file cache) we need to be able to tell if its disk version is up to 
+In the process of writing read and write, I noticed that we will probably need a
+flag to tell us whether a given file has unsynched changes in the buffer. This is
+because if the file is not cached (which it probably won't be because I'm unlikely 
+to have time to add a file cache) we need to be able to tell if its disk version is up to 
 date when it is read. Otherwise we would grab the disk version without the 
 recent changes appearing in the buffer.
     
@@ -334,6 +428,8 @@ recent changes appearing in the buffer.
               Added a dirty_inode_list to the checkpoint buffer struct to let us
               track this.
 
+Added this functionality to get_block() etc. and tested that it works! Yay!
+
 
 its getting pretty tough to track where we're at on disk and in memory just using
 the next_available fields in the bitvectors. It might be better to add two globals
@@ -347,8 +443,10 @@ Added filename validation to the create_file function to check that it not malfo
 and does not already exist in the parent directory specified. It now relies on a few
 other functions including get_dir_entries which is unimplmented (and obviously untested).
 
-[TODO] I changed the get_inode_block function to grab from the checkpoint buffer, 
-and this needs to be reflected in the test for this function 
+Added loads of helper functions like get_block, get_blocks, get_dir_entries, etc. to help with 
+reading and writing tasks. These have (almost) all been tested!
+
+I changed the get_inode_block function to grab from the checkpoint buffer.
 
 [TODO] Another thing to we need to figure out is the inode cache that we're 
 going to use. It feels easiest to hold an array of arrays of inode_t pointers,
@@ -360,14 +458,11 @@ a FIFO policy, or a LRU policy if we allow shuffling the queue when we use
 something already in it. This seems like a better way to go, but it is a little
 more complicated.
 
-Its looking like this isn't going to get done; I have a final on the 11th that I
+Its looking like this isn't actually going to get done; I have a final on the 11th that I
 need to put time in to study for, so this is going to be as far as I get. As above,
 what I would have liked to do would be the following:
-- Implement find_dir to parse through the directory tree and return the inode of the directory passed in. From here, we would be able to support all our operations in directories other than root. 
-- 
-- 
-- 
-
+- Implement read and write as described above (and in more detail in file.c) to read and write only to root. This would require a couple other helper functions but almost all of the framework functionality to make it happen is there (which hurts! :/)
+- Implement find_dir to parse through the directory tree and return the inode of the directory passed in. From here, we would be able to support all our operations in directories other than root.
 
 ### Misc Notes
 
@@ -380,7 +475,7 @@ Checkpointing:
             - One way to do this is to put the onus on the user to perform a manual
               checkpoint before ending a program which uses this library 
               (essentially like closing a file system) 
-
+    DONE: Flush/terminate take care of this.
 We need to make sure that we're populating our data structures in memory properly
 from disk before users are able to actually use the file system. One simple way to do
 this is to define a user API which is a subset of the functions written here (essentially
@@ -388,3 +483,4 @@ everything that would be made public were we doing this in Java) and in each of 
 check whether we have done this population (if not, do it then).
 Alternatively, we could ask that the user call a setup function before using the library. This
 falls in line nicely with a cleanup-style function mentioned in the checkpointing note above. 
+    OPTED FOR THE SECOND OPTION (INIT, FLUSH, TERMINATE)

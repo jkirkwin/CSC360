@@ -561,7 +561,7 @@ inode_t *create_file(char *filename, char *path_to_parent_dir) {
 
     // Check that a file with that name does not already exist in the parent directory
     dir_entry_t** dir_entries = get_dir_entries(parent_inode); // TODO this is unimplemented
-    int i = 0, filename_len = strlen(filename);
+    int i = 1, filename_len = strlen(filename);
     dir_entry_t *p = dir_entries[0];
     while(p != NULL) { 
         if(strlen(p->filename) != filename_len || strncmp(filename, p->filename, filename_len)) {
@@ -599,6 +599,9 @@ inode_t *create_file(char *filename, char *path_to_parent_dir) {
 
     // update the inode map
     imap[get_block_key_from_id(inode_id)] = new_inode_location; 
+
+    // Add the file to the parent directory's inode
+    add_entry_to_dir(create_dir_entry(get_block_key_from_id(inode_id), filename), parent_inode);
 
     VERBOSE_PRINT("Created new file '%s' in root directory\n", filename);
     return file_inode;
@@ -647,6 +650,30 @@ int append(char *content, int content_length, char *filename) {
 }
 
 /*
+ * Creates a directory entry with the given attributes.
+ * 
+ * Filename must be null terminated and of appropriate length.
+ */ 
+dir_entry_t *create_dir_entry(unsigned char imap_key, char* filename) {
+    if(strlen(filename) > MAX_FILENAME_LENGTH) {
+        printf("file name passed to create_dir_entry is too long.\n");
+        return NULL;
+    }
+    dir_entry_t *e = (dir_entry_t *) malloc(sizeof(dir_entry_t));
+    if(!e) {
+        printf("ERROR: Could not malloc dir entry struct\n");
+        exit(1);
+    }
+    e->imap_key = imap_key;
+    int i;
+    for(i = 0; i < strlen(filename); i++) {
+        e->filename[i] = filename[i];
+    }
+    e->filename[i] = '\0';
+    return e;
+}
+
+/*
  * Returns a NULL-terminated list of the filenames of all files in the 
  * directory. Directories are indicated with a trailing '/'.
  */ 
@@ -660,8 +687,6 @@ char **get_dir_contents(char *dirname) {
  * void **.
  */ 
 void **get_blocks(inode_t *inode) {
-    // TODO Test
-    
     VERBOSE_PRINT("Getting blocks for inode %d\n", inode->id);
 
     // alloc enough memory for pointers plus a null terminator
@@ -737,19 +762,35 @@ void **get_blocks(inode_t *inode) {
 }
 
 /*
+ * Adds the entry to the directory
+ */ 
+void add_entry_to_dir(dir_entry_t* new_entry, inode_t *dir_inode) {
+    // TODO
+    // use file size to find out which block this should go in
+    // retrieve that block
+    // edit it to add the entry
+    // increase inode file size
+    // get inode block
+    // modify to make up to date
+    // Add inode block to checkpoint buffer
+}
+
+/*
  * Returns a NULL-terminated list of the entries for all files in the directory.
  */ 
 dir_entry_t **get_dir_entries(inode_t *dir_inode) {
-    // TODO test
-    VERBOSE_PRINT("Getting directory entries\n");
+    VERBOSE_PRINT("Getting directory entries for dir with id %x\n", dir_inode->id & 0xFFFF);
 
     void **blocks = get_blocks(dir_inode);
+
     int entries_per_block = BYTES_PER_BLOCK / sizeof(dir_entry_t);
     int num_entries = dir_inode->file_size / sizeof(dir_entry_t);
     int num_blocks = num_entries / entries_per_block;
+    if(num_entries % entries_per_block) {
+        num_blocks++;
+    }
 
     dir_entry_t **entries = calloc(num_entries + 1, sizeof(dir_entry_t*));
-
     int index = 0;
     dir_entry_t *block_entries;
     for(int i = 0; i < num_blocks; i++) {
@@ -759,10 +800,10 @@ dir_entry_t **get_dir_entries(inode_t *dir_inode) {
                 free(blocks);
                 return entries;
             }
-            *entries[index++] = block_entries[j]; // TODO make sure this works
+            entries[index++] = &(block_entries[j]); 
         }
     }
-
+    VERBOSE_PRINT("Retrieved entries for directory %x\n", dir_inode->id & 0xFFFF);
     free(blocks);
     return entries;
 }
@@ -785,16 +826,59 @@ int read_file(void *buffer, int buffer_size, char *filename) {
     
     inode_t *parent_inode = root_inode; // TODO change this
 
-    /* TODO
-     *      1. check that the file is in the root directory for root [get_dir_entries()]
-     *      2. use the imap with the dir_entry for the file to find the inode location
-     *      3. get the inode block containing the file's [inode get_inode_block()]
-     *      4. retrieve the inode for the file get_inode
-     *      5. get the blocks for the file [get_blocks()]
+    /*
+     *      1. check that the file is in the root directory for root [get_dir_entries()] 
+     *      2. use the imap with the dir_entry for the file to find the inode location 
+     *      3. get the inode block containing the file's [inode get_inode_block()] 
+     *      4. retrieve the inode for the file 
+     *      5. get the blocks for the file [get_blocks()] 
      *      6. copy the contents of the blocks into the buffer given (up to its capacity)    
      */ 
-    
-    return -1;
+
+    dir_entry_t **parent_entries = get_dir_entries(parent_inode);
+    short num_entries = parent_inode->file_size / sizeof(dir_entry_t);
+    inode_t *inode_block;
+    inode_t *result_inode = NULL;
+
+    for(int i = 0; i < num_entries; i++) {
+        // check if the entry filename matches the filename given
+        if(!strncmp(filename, parent_entries[i]->filename, MAX_FILENAME_LENGTH)) {
+            // We have a winner
+            inode_block = get_inode_block(parent_entries[i]->imap_key);
+            for(int j = 0; j < 16; j++) {
+                if(inode_block[j].parent_id == parent_inode->id) {
+                    result_inode = &(inode_block[j]);
+                    break;
+                }
+            }
+        }
+        if(result_inode) {
+            break;
+        }
+    }
+    if(!result_inode) {
+        printf("No such file exists in root dir \n");
+        return -1;
+    }
+
+    char *char_buffer = (char *) buffer;
+    char **blocks = (char **) get_blocks(result_inode);
+    int block_index = 0;
+    int length = 0;
+    int buffer_space;
+    while(length < buffer_size && blocks[block_index] != NULL) {
+        // add a block to the buffer
+        buffer_space = buffer_size - length;
+        if(buffer_space > BYTES_PER_BLOCK) {
+            buffer_space = BYTES_PER_BLOCK;
+        }
+        char *dest = &(char_buffer[length]);
+        strncpy(dest, blocks[block_index++], 512);
+        length += buffer_space;
+    }
+
+    VERBOSE_PRINT("Content copied from file to buffer\n");
+    return 0;
 }
 
 /*

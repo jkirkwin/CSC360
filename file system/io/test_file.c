@@ -708,9 +708,81 @@ bool test_get_blocks() {
 }
 
 bool test_get_dir_entries() {
-    // TODO
-    VERBOSE_PRINT("\n\t--UNIMPLEMENTED\n\t");
-    return false;
+    // We use the root directory to test this.
+    // Case 1. Empty Directory
+    // Case 2. Directory with 2 items
+    
+    init_LLFS();
+    bitvector_t *free_block_list = _get_free_block_list();
+    short *imap = _get_imap();
+
+    inode_t *root_block = get_inode_block(get_block_key_from_id(ROOT_ID));
+    inode_t *root = &(root_block[0]);
+
+    // Case 1: Empty
+    dir_entry_t **entries = get_dir_entries(root);
+    if(entries[0] != NULL) {
+        printf("NULL terminator not found for empty dir\n");
+        return false;
+    }
+
+    // create the inodes that we want to put into root
+    inode_t inodes[2];
+    short first_inode_id = 10;
+    for(int i = 0; i < 2; i++) {
+        inodes[i] = *create_empty_inode(i + first_inode_id, ROOT_ID);
+    }
+
+
+    // Create 2 blocks of entries for these inodes
+    dir_entry_t entry_block[2];
+    char *filename1 = "file_a\0";
+    char *filename2 = "file_b\0";
+    entry_block[0] = *create_dir_entry(get_block_key_from_id(inodes[0].id), filename1);
+    entry_block[1] = *create_dir_entry(get_block_key_from_id(inodes[1].id), filename2);
+    
+
+    // Case 2: Add 2 items and re-test
+    // Write a block with two inodes in it to disk
+    // Point root's first direct pointer to the block
+    // Update root's file size
+    short entry_block_location = free_block_list->next_available;
+    free_block_list->next_available++;
+    vdisk_write(entry_block_location, entry_block, 0, sizeof(dir_entry_t) * 2, NULL);
+    root->file_size = sizeof(dir_entry_t) * 2;
+    root->direct[0] = entry_block_location;
+    vdisk_write(imap[get_block_key_from_id(ROOT_ID)], root, 0, sizeof(inode_t), NULL); // Replace root on disk
+
+    entries = get_dir_entries(root);
+
+    dir_entry_t *e = entries[0];
+    if(e == NULL) {
+        printf("ITS NULL'\n\n");
+    }
+
+    if(entries[0]->imap_key != get_block_key_from_id(inodes[0].id)) {
+        printf("Inode 0 key mismatch with retrieved entry\n");
+        return false;
+    }
+    if(strncmp(entries[0]->filename, "file_a\0", strlen("file_a\0"))) {
+        printf("Filename mismatch for inode 0\n");
+        return false;
+    }
+    if(entries[1]->imap_key != get_block_key_from_id(inodes[1].id)) {
+        printf("Inode 0 key mismatch with retrieved entry\n");
+        return false;
+    }
+    if(strncmp(entries[1]->filename, "file_b\0", strlen("file_b\0"))) {
+        printf("Filename mismatch for inode 1\n");
+        return false;
+    }
+    if(entries[2] != NULL) {
+        printf("NULL terminator not found for dir with 2 items\n");
+        return false;
+    }    
+
+    VERBOSE_PRINT("\n\t--entries match and null terminators are in place\n\t");
+    return true;
 }
 
 bool test_create_file_in_root_dir() {

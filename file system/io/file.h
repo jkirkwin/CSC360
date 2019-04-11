@@ -54,9 +54,12 @@ inode_t *create_empty_inode(short id, short parent_id);
 /* =========================== Directories =============================*/
 
 typedef struct dir_entry {
-    unsigned char inode_id; // an inode block number (key for imap)
+    unsigned char imap_key; // an inode block number (key for imap)
     char filename[MAX_FILENAME_LENGTH + 1]; // Null terminated string 
 } dir_entry_t;
+
+dir_entry_t *create_dir_entry(unsigned char imap_key, char* filename);
+void add_entry_to_dir(dir_entry_t* new_entry, inode_t *);
 
 /* =========================== Bit Vector API ===========================*/
 
