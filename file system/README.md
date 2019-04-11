@@ -5,7 +5,10 @@
 Hello and welcome. 
 
 My disk implementation is pretty simple and intuitive. See the API below for details,
-but it has a read fucntion and a write function, each of which uses one block. 
+but it has a read fucntion and a write function, each of which uses one block. I
+also added the ability for users to specify custom locations for these operations,
+which makes the system more scalable because multiple disks can be used/mounted because 
+of this.
 
 The file system its self is in file.c. Were I to do it again I would have ignored
 the instruction to make it all in one file, as it is very unweildy and messy at just 
@@ -43,19 +46,30 @@ they are simple and a dependency of others which were tested or because I didn't
 Unit tests for the disk controller are in disk/test_vdisk.c. 
 Unit tests for the file system are in io/test_file.c. 
 
-```make``` will compile the file system library and the disk library as well as 
-create 2 executables, ```test_vdisk``` and ```test_file``` which are the unit 
+`make` will compile the file system library and the disk library as well as 
+create 2 executables, `test_vdisk` and `test_file` which are the unit 
 tests for the two libraries.
 
-```make run_unittest``` will do the above compilation and run both unit test suites.
+`make run_unittest` will do the above compilation and run both unit test suites.
+
+Note: I verified that all 4 disk tests and the first 14/15 file tests should pass on
+the ssh server.
 
 I tried to strike a balance on the unit test being verbose and the output being easy to parse.
 One in particular (file.c test 13) spits out a bunch of garbage due to repeated function calls
 but this output is needed to make the other tests make sense. Sorry about that!
 
-TODO write test01, test02 and talk about them
+I have also included the apps/test0X files detailed in the spec. ```test01.c```
+shows how blocks can be written to and read from the disk. A child process is
+created to write some content to the disk, and the parent reads it back and 
+validates the result once the child is done. You can compile this with `make test01`. 
+`test02c` shows how a new disk can be created (with `vdisk_write`) and mounted 
+(with `init_LLFS`). `make test02` will compile it.
 
-TODO talk about the shell script, what it does, how to run it
+The shell script `script.sh` (very imaginative title) can be run with `bash script.sh`.
+This will build the libraries, run the unit tests, and run the apps/tests as well.
+Output from the bash script is marked clearly in an effort to make the result more 
+readible, as it produces quite a bit of stuff.
 
 ## APIs and spec notes
 

@@ -12,5 +12,7 @@ echo "BASH ===running showcase tests [test0x.c] ==============================="
 echo "BASH ===================================================================="
 make test01
 ./test01
+echo "BASH ===removing existing vdisk for test2================================"
+rm ./vdisk 
 make test02
 ./test02
